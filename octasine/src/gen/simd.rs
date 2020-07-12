@@ -275,17 +275,9 @@ pub unsafe fn process_f32_avx(
 
                 let modulation_target = operator_modulation_targets[operator_index];
 
-                let constant_power_panning = {
-                    let mut data = [0.0f64; 8];
-
-                    let left_and_right = operators[operator_index].panning.left_and_right;
-                    
-                    for (i, v) in data.iter_mut().enumerate() {
-                        *v = left_and_right[i % 2];
-                    }
-
-                    _mm256_loadu_pd(&data[0])
-                };
+                let constant_power_panning = constant_power_panning_from_left_and_right(
+                    operators[operator_index].panning.left_and_right
+                );
 
                 let operator_volume_splat = _mm256_set1_pd(operator_volume[operator_index]);
                 let operator_additive_splat = _mm256_set1_pd(operator_additive[operator_index]);
@@ -368,6 +360,17 @@ pub unsafe fn process_f32_avx(
             audio_buffer_rights[i + sample_offset] = summed_additive_outputs[j + 1] as f32;
         }
     } // End of pass iteration
+}
+
+
+#[inline]
+#[target_feature(enable = "avx")]
+unsafe fn constant_power_panning_from_left_and_right(
+    operator_left_and_right: [f64; 2]
+) -> __m256d {
+    let [left, right] = operator_left_and_right;
+
+    _mm256_set_pd(right, left, right, left)
 }
 
 
