@@ -31,20 +31,21 @@ pub unsafe fn process_f32_avx(
     octasine: &mut OctaSine,
     audio_buffer: &mut AudioBuffer<f32>
 ){
-    let num_samples = audio_buffer.samples();
+    // Per-pass voice data. Indexing: 128 voices, 4 operators
+    let mut voice_envelope_volumes: ArrayVec<[[[f64; SAMPLE_PASS_SIZE * 2]; 4]; 128]> = ArrayVec::new();
+    let mut voice_phases: ArrayVec<[[[f64; SAMPLE_PASS_SIZE * 2]; 4]; 128]> = ArrayVec::new();
+    let mut key_velocities: ArrayVec<[f64; 128]> = ArrayVec::new();
 
     let mut audio_buffer_outputs = audio_buffer.split().1;
     let audio_buffer_lefts = audio_buffer_outputs.get_mut(0);
     let audio_buffer_rights = audio_buffer_outputs.get_mut(1);
 
-    let num_passes = num_samples / SAMPLE_PASS_SIZE;
+    let audio_buffer_chunks = izip!(
+        audio_buffer_lefts.chunks_exact_mut(SAMPLE_PASS_SIZE),
+        audio_buffer_rights.chunks_exact_mut(SAMPLE_PASS_SIZE)
+    );
 
-    // indexing: 128 voices, 4 operators
-    let mut voice_envelope_volumes: ArrayVec<[[[f64; SAMPLE_PASS_SIZE * 2]; 4]; 128]> = ArrayVec::new();
-    let mut voice_phases: ArrayVec<[[[f64; SAMPLE_PASS_SIZE * 2]; 4]; 128]> = ArrayVec::new();
-    let mut key_velocities: ArrayVec<[f64; 128]> = ArrayVec::new();
-
-    for pass_index in 0..num_passes {
+    for (audio_buffer_left_chunk, audio_buffer_right_chunk) in audio_buffer_chunks {
         // --- Update processing parameters from preset parameters
 
         let changed_preset_parameters = octasine.sync_only.presets
@@ -238,7 +239,9 @@ pub unsafe fn process_f32_avx(
         // Dummy modulation output for operator 0
         let mut dummy_modulation_out = [0.0f64; SAMPLE_PASS_SIZE * 2];
 
-        let zero_value_limit_splat = _mm256_set1_pd(ZERO_VALUE_LIMIT);
+        // FIXME: this was previously used for skipping samples if
+        // volume is off, might be useful to put back
+        // let zero_value_limit_splat = _mm256_set1_pd(ZERO_VALUE_LIMIT);
 
         // Voice index here is not the same as in processing storage
         for voice_index in 0..num_active_voices {
@@ -299,13 +302,14 @@ pub unsafe fn process_f32_avx(
         }
 
         // --- Write additive outputs to audio buffer
-
-        let sample_offset = pass_index * SAMPLE_PASS_SIZE;
-
-        for i in 0..SAMPLE_PASS_SIZE {
-            let j = i * 2;
-            audio_buffer_lefts[i + sample_offset] = summed_additive_outputs[j] as f32;
-            audio_buffer_rights[i + sample_offset] = summed_additive_outputs[j + 1] as f32;
+        
+        for (additive_chunk, buffer_left, buffer_right) in izip!(
+            summed_additive_outputs.chunks_exact(2),
+            audio_buffer_left_chunk.iter_mut(),
+            audio_buffer_right_chunk.iter_mut()
+        ){
+            *buffer_left = additive_chunk[0] as f32;
+            *buffer_right = additive_chunk[1] as f32;
         }
 
         // --- Clean up voice data for next pass
