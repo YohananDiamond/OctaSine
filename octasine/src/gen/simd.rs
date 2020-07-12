@@ -233,6 +233,8 @@ pub unsafe fn process_f32_avx(
 
         // Sample pass size * 2 because of two channels. Even index = left channel
         let mut summed_additive_outputs = [0.0f64; SAMPLE_PASS_SIZE * 2];
+        // Dummy modulation output for operator 0
+        let mut dummy_modulation_out = [0.0f64; SAMPLE_PASS_SIZE * 2];
 
         let zero_value_limit_splat = _mm256_set1_pd(ZERO_VALUE_LIMIT);
 
@@ -240,8 +242,6 @@ pub unsafe fn process_f32_avx(
         for voice_index in 0..num_active_voices {
             // Voice modulation input storage, indexed by operator
             let mut voice_modulation_inputs = [[0.0f64; SAMPLE_PASS_SIZE * 2]; 4];
-            // Modulation output for operator 0
-            let mut dummy_modulation_out = [0.0f64; SAMPLE_PASS_SIZE * 2];
 
             let key_velocity_splat = _mm256_set1_pd(key_velocities[voice_index]);
 
@@ -284,7 +284,7 @@ pub unsafe fn process_f32_avx(
         let max_volume_splat = _mm256_set1_pd(5.0);
         let min_volume_splat = _mm256_set1_pd(-5.0);
 
-        summed_additive_outputs.chunks_exact_mut(4).for_each(|chunk| {
+        for chunk in summed_additive_outputs.chunks_exact_mut(4){
             let mut outputs = _mm256_loadu_pd(&chunk[0]);
 
             outputs = _mm256_mul_pd(master_volume_factor_splat, outputs);
@@ -294,7 +294,7 @@ pub unsafe fn process_f32_avx(
             outputs = _mm256_max_pd(min_volume_splat, outputs);
 
             _mm256_storeu_pd(&mut chunk[0], outputs);
-        });
+        }
 
         // --- Write additive outputs to audio buffer
 
