@@ -99,7 +99,7 @@ impl Plugin for OctaSine {
         // with at least SSE2 present. It is provided by x86_64 by
         // specification, and since f64s are used in the code anyway, just
         // feature gate on that, as well as the "simd" feature flag.
-        if #[cfg(all(feature = "simd", target_feature = "avx"))] {
+        if #[cfg(all(feature = "simd", target_arch = "x86_64"))] {
             fn process(&mut self, buffer: &mut vst::buffer::AudioBuffer<f32>){
                 unsafe {
                     gen::simd::process_f32_avx(self, buffer);
