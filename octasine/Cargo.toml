@@ -7,7 +7,7 @@ edition = "2018"
 
 [features]
 default = []
-simd = ["simdeez", "arrayvec"]
+simd = ["sleef-sys", "arrayvec"]
 logging = ["dirs", "log", "log-panics", "simplelog"]
 
 [lib]
@@ -33,10 +33,10 @@ simplelog = { version = "0.8", optional = true, default-features = false }
 [dependencies.vst2_helpers]
 path = "../vst2_helpers"
 
-[dependencies.simdeez]
-git = 'https://github.com/greatest-ape/simdeez.git'
+[dependencies.sleef-sys]
+git = 'https://github.com/greatest-ape/sleef-sys.git'
 branch = "octasine"
-features = ["sleef"]
+features = ["static"]
 optional = true
 
 [dev-dependencies]
