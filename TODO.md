@@ -1,5 +1,10 @@
 # TODO
 
+## Performance
+
+- simd: interpolation for processing parameters every sample? Build long
+  arrays here too?
+
 ## Code quality / safety
 
 * NUM_PARAMETERS constant?

@@ -1,18 +1,14 @@
-//! Audio generation using explicit simd
-//! 
-//! At least SSE2 is required. Simdeez scalar fallback will fail due to the
-//! method used for stereo modulation input calculation.
-//! 
-//! TODO:
-//!   - Interpolation for processing parameters every sample? Build long arrays here too?
+//! Audio generation using simd intrinsics (avx)
+//!
+//! Requires nightly because sleef-sys requires simd ffi
 
 use core::arch::x86_64::*;
 
 use arrayvec::ArrayVec;
 use fastrand::Rng;
-use vst::buffer::AudioBuffer;
-use sleef_sys::Sleef_sind4_u35;
 use itertools::izip;
+use sleef_sys::Sleef_sind4_u35;
+use vst::buffer::AudioBuffer;
 
 use vst2_helpers::processing_parameters::ProcessingParameter;
 
@@ -20,6 +16,7 @@ use crate::OctaSine;
 use crate::common::*;
 use crate::constants::*;
 use crate::processing_parameters::*;
+
 
 /// Each SAMPLE_PASS_SIZE samples, load parameter changes and processing
 /// parameter values (interpolated values where applicable)
