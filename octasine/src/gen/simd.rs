@@ -326,16 +326,17 @@ pub unsafe fn process_f32_avx(
         let max_volume_splat = _mm256_set1_pd(5.0);
         let min_volume_splat = _mm256_set1_pd(-5.0);
 
-        for i in (0..SAMPLE_PASS_SIZE * 2).step_by(4) {
-            let additive_outputs = _mm256_loadu_pd(&summed_additive_outputs[i]);
-            let additive_outputs = _mm256_mul_pd(additive_outputs, master_volume_factor_splat);
-            let limited_outputs = _mm256_max_pd(
-                _mm256_min_pd(additive_outputs, max_volume_splat),
-                min_volume_splat
-            );
+        summed_additive_outputs.chunks_exact_mut(4).for_each(|chunk| {
+            let mut outputs = _mm256_loadu_pd(&chunk[0]);
 
-            _mm256_storeu_pd(&mut summed_additive_outputs[i], limited_outputs);
-        }
+            outputs = _mm256_mul_pd(master_volume_factor_splat, outputs);
+
+            // Hard limit
+            outputs = _mm256_min_pd(max_volume_splat, outputs);
+            outputs = _mm256_max_pd(min_volume_splat, outputs);
+
+            _mm256_storeu_pd(&mut chunk[0], outputs);
+        });
 
         // --- Write additive outputs to audio buffer
 
