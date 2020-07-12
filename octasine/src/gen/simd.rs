@@ -39,6 +39,11 @@ pub unsafe fn process_f32_avx(
 
     let num_passes = num_samples / SAMPLE_PASS_SIZE;
 
+    // indexing: 128 voices, 4 operators
+    let mut voice_envelope_volumes: ArrayVec<[[[f64; SAMPLE_PASS_SIZE * 2]; 4]; 128]> = ArrayVec::new();
+    let mut voice_phases: ArrayVec<[[[f64; SAMPLE_PASS_SIZE * 2]; 4]; 128]> = ArrayVec::new();
+    let mut key_velocities: ArrayVec<[f64; 128]> = ArrayVec::new();
+
     for pass_index in 0..num_passes {
         // --- Update processing parameters from preset parameters
 
@@ -163,9 +168,6 @@ pub unsafe fn process_f32_avx(
 
         // Maybe operator indexes should be inversed (3 - operator_index)
         // because that is how they will be accessed later.
-        let mut voice_envelope_volumes: ArrayVec<[[[f64; SAMPLE_PASS_SIZE * 2]; 4]; 128]> = ArrayVec::new();
-        let mut voice_phases: ArrayVec<[[[f64; SAMPLE_PASS_SIZE * 2]; 4]; 128]> = ArrayVec::new();
-        let mut key_velocities: ArrayVec<[f64; 128]> = ArrayVec::new();
         
         let mut num_active_voices = 0;
 
@@ -305,6 +307,12 @@ pub unsafe fn process_f32_avx(
             audio_buffer_lefts[i + sample_offset] = summed_additive_outputs[j] as f32;
             audio_buffer_rights[i + sample_offset] = summed_additive_outputs[j + 1] as f32;
         }
+
+        // --- Clean up voice data for next pass
+
+        voice_envelope_volumes.clear();
+        voice_phases.clear();
+        key_velocities.clear();
     } // End of pass iteration
 }
 
