@@ -257,21 +257,8 @@ pub unsafe fn process_f32_avx(
                 }
 
                 // sin only
-                let (pan_tendency, one_minus_pan_tendency) = {
-                    // Get panning as value between -1 and 1
-                    let pan_transformed = 2.0 * (operator_panning[operator_index] - 0.5);
-
-                    let r = pan_transformed.max(0.0);
-                    let l = (pan_transformed * -1.0).max(0.0);
-
-                    // Width 8 in case of eventual avx512 support in simdeez
-                    let data = [l, r, l, r, l, r, l, r];
-                    
-                    let tendency = _mm256_loadu_pd(&data[0]);
-                    let one_minus_tendency = _mm256_sub_pd(_mm256_set1_pd(1.0), tendency);
-
-                    (tendency, one_minus_tendency)
-                };
+                let pan_tendency = calculate_pan_tendency(operator_panning[operator_index]);
+                let one_minus_pan_tendency = _mm256_sub_pd(one_splat, pan_tendency);
 
                 let modulation_target = operator_modulation_targets[operator_index];
 
@@ -369,6 +356,21 @@ unsafe fn constant_power_panning_from_left_and_right(
     operator_left_and_right: [f64; 2]
 ) -> __m256d {
     let [left, right] = operator_left_and_right;
+
+    _mm256_set_pd(right, left, right, left)
+}
+
+
+#[inline]
+#[target_feature(enable = "avx")]
+unsafe fn calculate_pan_tendency(
+    operator_panning: f64
+) -> __m256d {
+    // Get panning as value between -1 and 1
+    let pan_transformed = 2.0 * (operator_panning - 0.5);
+
+    let right = pan_transformed.max(0.0);
+    let left = (pan_transformed * -1.0).max(0.0);
 
     _mm256_set_pd(right, left, right, left)
 }
