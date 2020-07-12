@@ -265,58 +265,85 @@ pub unsafe fn process_f32_avx(
                     operators[operator_index].panning.left_and_right
                 );
 
-                // sin only
-                let operator_feedback_splat = _mm256_set1_pd(operator_feedback[operator_index]);
-                let operator_modulation_index_splat = _mm256_set1_pd(operator_modulation_index[operator_index]);
-                let pan_tendency = calculate_pan_tendency(operator_panning[operator_index]);
-                let one_minus_pan_tendency = _mm256_sub_pd(one_splat, pan_tendency);
-
                 let modulation_target = operator_modulation_targets[operator_index];
-                let (
-                    voice_modulation_inputs_below,
-                    voice_modulation_inputs_above
-                ) = voice_modulation_inputs.split_at_mut(operator_index);
-
-                let modulation_in_chunks = voice_modulation_inputs_above[0].chunks_exact_mut(4);
-                let modulation_out_chunks = if operator_index == 0 {
-                    dummy_modulation_out.chunks_exact_mut(4)
-                } else {
-                    voice_modulation_inputs_below[modulation_target].chunks_exact_mut(4)
-                };
 
                 let summed_additive_output_chunks = summed_additive_outputs.chunks_exact_mut(4);
                 let envelope_volume_chunks = voice_envelope_volumes[voice_index][operator_index].chunks_exact_mut(4);
-                let voice_phase_chunks = voice_phases[voice_index][operator_index].chunks_exact_mut(4);
 
-                let super_chunks = izip!(
-                    summed_additive_output_chunks,
-                    modulation_in_chunks,
-                    modulation_out_chunks,
-                    envelope_volume_chunks,
-                    voice_phase_chunks,
-                );
+                if operator_is_noise {
+                    let modulation_out_chunks = voice_modulation_inputs[modulation_target].chunks_exact_mut(4);
 
-                for (
-                    additive_out_chunk,
-                    modulation_in_chunk,
-                    modulation_out_chunk,
-                    envelope_volume_chunk,
-                    voice_phase_chunk
-                ) in super_chunks {
-                    let envelope_volume = _mm256_loadu_pd(&envelope_volume_chunk[0]);
+                    let chunks = izip!(
+                        summed_additive_output_chunks,
+                        modulation_out_chunks,
+                        envelope_volume_chunks,
+                    );
 
-                    // sin only
-                    let voice_phases = _mm256_loadu_pd(&voice_phase_chunk[0]);
-                    let modulation_in_for_channel = _mm256_loadu_pd(&modulation_in_chunk[0]);
+                    for (
+                        mut additive_out_chunk,
+                        mut modulation_out_chunk,
+                        envelope_volume_chunk,
+                    ) in chunks {
+                        let envelope_volume = _mm256_loadu_pd(&envelope_volume_chunk[0]);
+                        let volume_product = _mm256_mul_pd(operator_volume_splat, envelope_volume);
 
-                    let sample = if operator_is_noise {
-                        gen_noise_samples(
+                        let samples = gen_noise_samples(
                             &octasine.processing.rng,
                             one_splat,
                             two_splat
-                        )
+                        );
+
+                        write_samples_to_chunks(
+                            volume_product,
+                            constant_power_panning,
+                            operator_additive_splat,
+                            key_velocity_splat,
+                            &mut modulation_out_chunk,
+                            &mut additive_out_chunk,
+                            samples,
+                        );
+                    }
+                } else {
+                    let operator_feedback_splat = _mm256_set1_pd(operator_feedback[operator_index]);
+                    let operator_modulation_index_splat = _mm256_set1_pd(operator_modulation_index[operator_index]);
+                    let pan_tendency = calculate_pan_tendency(operator_panning[operator_index]);
+                    let one_minus_pan_tendency = _mm256_sub_pd(one_splat, pan_tendency);
+
+                    let voice_phase_chunks = voice_phases[voice_index][operator_index].chunks_exact_mut(4);
+
+                    let (
+                        voice_modulation_inputs_below,
+                        voice_modulation_inputs_above
+                    ) = voice_modulation_inputs.split_at_mut(operator_index);
+
+                    let modulation_in_chunks = voice_modulation_inputs_above[0].chunks_exact_mut(4);
+                    let modulation_out_chunks = if operator_index == 0 {
+                        dummy_modulation_out.chunks_exact_mut(4)
                     } else {
-                        gen_sin_samples(
+                        voice_modulation_inputs_below[modulation_target].chunks_exact_mut(4)
+                    };
+
+                    let chunks = izip!(
+                        summed_additive_output_chunks,
+                        modulation_out_chunks,
+                        modulation_in_chunks,
+                        envelope_volume_chunks,
+                        voice_phase_chunks,
+                    );
+
+                    for (
+                        mut additive_out_chunk,
+                        mut modulation_out_chunk,
+                        modulation_in_chunk,
+                        envelope_volume_chunk,
+                        voice_phase_chunk
+                    ) in chunks {
+                        let envelope_volume = _mm256_loadu_pd(&envelope_volume_chunk[0]);
+                        let volume_product = _mm256_mul_pd(operator_volume_splat, envelope_volume);
+                        let voice_phases = _mm256_loadu_pd(&voice_phase_chunk[0]);
+                        let modulation_in_for_channel = _mm256_loadu_pd(&modulation_in_chunk[0]);
+
+                        let samples = gen_sin_samples(
                             tau_splat,
                             voice_phases,
                             modulation_in_for_channel,
@@ -324,27 +351,18 @@ pub unsafe fn process_f32_avx(
                             one_minus_pan_tendency,
                             operator_feedback_splat,
                             operator_modulation_index_splat,
-                        )
-                    };
+                        );
 
-                    let volume_product = _mm256_mul_pd(operator_volume_splat, envelope_volume);
-                    let sample_adjusted = _mm256_mul_pd(sample, _mm256_mul_pd(volume_product, constant_power_panning));
-                    let additive_out = _mm256_mul_pd(sample_adjusted, operator_additive_splat);
-                    let modulation_out = _mm256_sub_pd(sample_adjusted, additive_out);
-
-                    // Add modulation output to target operator's modulation inputs
-                    let modulation_sum = _mm256_add_pd(
-                        _mm256_loadu_pd(&modulation_out_chunk[0]),
-                        modulation_out
-                    );
-                    _mm256_storeu_pd(&mut modulation_out_chunk[0], modulation_sum);
-
-                    // Add additive output to summed_additive_outputs
-                    let summed_plus_new = _mm256_add_pd(
-                        _mm256_loadu_pd(&additive_out_chunk[0]),
-                        _mm256_mul_pd(additive_out, key_velocity_splat)
-                    );
-                    _mm256_storeu_pd(&mut additive_out_chunk[0], summed_plus_new);
+                        write_samples_to_chunks(
+                            volume_product,
+                            constant_power_panning,
+                            operator_additive_splat,
+                            key_velocity_splat,
+                            &mut modulation_out_chunk,
+                            &mut additive_out_chunk,
+                            samples,
+                        );
+                    }
                 } // End of sample pass size *  2 iteration
             } // End of operator iteration
         } // End of voice iteration
@@ -464,4 +482,33 @@ unsafe fn gen_noise_samples(
     samples = _mm256_mul_pd(samples, two_splat);
 
     samples
+}
+
+
+#[inline]
+#[target_feature(enable = "avx")]
+unsafe fn write_samples_to_chunks(
+    volume_product: __m256d,
+    constant_power_panning: __m256d,
+    operator_additive_splat: __m256d,
+    key_velocity_splat: __m256d,
+    modulation_out_chunk: &mut [f64],
+    additive_out_chunk: &mut [f64],
+    sample: __m256d,
+){
+    let sample_adjusted = _mm256_mul_pd(sample, _mm256_mul_pd(volume_product, constant_power_panning));
+    let new_additive_out = _mm256_mul_pd(sample_adjusted, operator_additive_splat);
+    let new_modulation_out = _mm256_sub_pd(sample_adjusted, new_additive_out);
+
+    let modulation_out_sum = _mm256_add_pd(
+        _mm256_loadu_pd(&modulation_out_chunk[0]),
+        new_modulation_out
+    );
+    _mm256_storeu_pd(&mut modulation_out_chunk[0], modulation_out_sum);
+
+    let additive_out_sum = _mm256_add_pd(
+        _mm256_loadu_pd(&additive_out_chunk[0]),
+        _mm256_mul_pd(new_additive_out, key_velocity_splat)
+    );
+    _mm256_storeu_pd(&mut additive_out_chunk[0], additive_out_sum);
 }
