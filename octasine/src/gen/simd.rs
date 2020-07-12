@@ -201,21 +201,26 @@ pub unsafe fn process_f32_avx(
                 }
 
                 // Phase
-                for operator_index in 0..4 {
+                for (operator_index, phases) in operator_phases.iter_mut()
+                    .enumerate()
+                {
                     let last_phase = voice.operators[operator_index].last_phase.0;
-                    let frequency = voice_base_frequency * operator_frequency_modifiers[operator_index];
+                    let frequency = voice_base_frequency *
+                        operator_frequency_modifiers[operator_index];
                     let phase_addition = frequency * time_per_sample.0;
 
                     let mut new_phase = 0.0;
 
-                    for i in 0..SAMPLE_PASS_SIZE {
-                        // Do multiplication instead of successive addition for less precision loss (hopefully)
-                        new_phase = last_phase + phase_addition * ((i + 1) as f64);
+                    for (i, phase_chunk) in phases.chunks_exact_mut(2)
+                        .enumerate()
+                    {
+                        // Do multiplication instead of successive addition
+                        // for less precision loss (hopefully)
+                        new_phase = last_phase +
+                            phase_addition * ((i + 1) as f64);
 
-                        let j = i * 2;
-
-                        operator_phases[operator_index][j] = new_phase;
-                        operator_phases[operator_index][j + 1] = new_phase;
+                        phase_chunk[0] = new_phase;
+                        phase_chunk[1] = new_phase;
                     }
 
                     // Save phase
