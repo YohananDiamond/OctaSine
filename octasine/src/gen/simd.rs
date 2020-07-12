@@ -309,120 +309,103 @@ pub unsafe fn process_f32_avx(
                         );
                         _mm256_storeu_pd(&mut summed_additive_outputs[i], summed_plus_new);
                     }
+                } else {
+                    // --- Sine frequency modulation audio generation: setup operator SIMD vars
 
-                    continue;
-                }
+                    let operator_volume_splat = _mm256_set1_pd(operator_volume[operator_index]);
+                    let operator_feedback_splat = _mm256_set1_pd(operator_feedback[operator_index]);
+                    let operator_additive_splat = _mm256_set1_pd(operator_additive[operator_index]);
+                    let operator_modulation_index_splat = _mm256_set1_pd(operator_modulation_index[operator_index]);
 
-                // --- Sine frequency modulation audio generation: setup operator SIMD vars
+                    let (pan_tendency, one_minus_pan_tendency) = {
+                        // Get panning as value between -1 and 1
+                        let pan_transformed = 2.0 * (operator_panning[operator_index] - 0.5);
 
-                let operator_volume_splat = _mm256_set1_pd(operator_volume[operator_index]);
-                let operator_feedback_splat = _mm256_set1_pd(operator_feedback[operator_index]);
-                let operator_additive_splat = _mm256_set1_pd(operator_additive[operator_index]);
-                let operator_modulation_index_splat = _mm256_set1_pd(operator_modulation_index[operator_index]);
+                        let r = pan_transformed.max(0.0);
+                        let l = (pan_transformed * -1.0).max(0.0);
 
-                let (pan_tendency, one_minus_pan_tendency) = {
-                    // Get panning as value between -1 and 1
-                    let pan_transformed = 2.0 * (operator_panning[operator_index] - 0.5);
+                        // Width 8 in case of eventual avx512 support in simdeez
+                        let data = [l, r, l, r, l, r, l, r];
+                        
+                        let tendency = _mm256_loadu_pd(&data[0]);
+                        let one_minus_tendency = _mm256_sub_pd(_mm256_set1_pd(1.0), tendency);
 
-                    let r = pan_transformed.max(0.0);
-                    let l = (pan_transformed * -1.0).max(0.0);
+                        (tendency, one_minus_tendency)
+                    };
 
-                    // Width 8 in case of eventual avx512 support in simdeez
-                    let data = [l, r, l, r, l, r, l, r];
-                    
-                    let tendency = _mm256_loadu_pd(&data[0]);
-                    let one_minus_tendency = _mm256_sub_pd(_mm256_set1_pd(1.0), tendency);
+                    let constant_power_panning = {
+                        let mut data = [0.0f64; 8];
 
-                    (tendency, one_minus_tendency)
-                };
-
-                let constant_power_panning = {
-                    let mut data = [0.0f64; 8];
-
-                    let left_and_right = operators[operator_index].panning.left_and_right;
-                    
-                    for (i, v) in data.iter_mut().enumerate() {
-                        *v = left_and_right[i % 2];
-                    }
-
-                    _mm256_loadu_pd(&data[0])
-                };
-
-                let modulation_target = operator_modulation_targets[operator_index];
-
-                // --- Create samples for both channels
-
-                let tau_splat = _mm256_set1_pd(TAU);
-
-                for i in (0..SAMPLE_PASS_SIZE * 2).step_by(4) {
-                    let envelope_volume = _mm256_loadu_pd(&voice_envelope_volumes[voice_index][operator_index][i]);
-                    let volume_product = _mm256_mul_pd(operator_volume_splat, envelope_volume);
-
-                    // Skip generation when envelope volume or operator volume is zero.
-                    // Helps performance when operator envelope lengths vary a lot.
-                    // Otherwise, the branching probably negatively impacts performance.
-                    /*{ FIXME
-                        let volume_on = _mm256_cmp_pd(volume_product, zero_value_limit_splat, _CMP_GT_OS);
-
-                        // Higher indeces don't really matter: if previous sample has zero
-                        // envelope volume, next one probably does too. Worst case scenario
-                        // is that attacks are a tiny bit slower.
-                        if volume_on[0].to_bits() == 0 {
-                            continue;
+                        let left_and_right = operators[operator_index].panning.left_and_right;
+                        
+                        for (i, v) in data.iter_mut().enumerate() {
+                            *v = left_and_right[i % 2];
                         }
-                    }*/
 
-                    let phase = _mm256_mul_pd(
-                        _mm256_loadu_pd(&voice_phases[voice_index][operator_index][i]),
-                        tau_splat
-                    );
+                        _mm256_loadu_pd(&data[0])
+                    };
 
-                    // Weird modulation input panning
-                    let modulation_in_for_channel = _mm256_loadu_pd(&voice_modulation_inputs[operator_index][i]);
-                    let modulation_in_channel_sum = _mm256_hadd_pd(modulation_in_for_channel, modulation_in_for_channel);
-                    let modulation_in = _mm256_add_pd(
-                        _mm256_mul_pd(pan_tendency, modulation_in_channel_sum),
-                        _mm256_mul_pd(one_minus_pan_tendency, modulation_in_for_channel)
-                    );
+                    let modulation_target = operator_modulation_targets[operator_index];
 
-                    let feedback = _mm256_mul_pd(
-                        operator_feedback_splat,
-                        Sleef_sind4_u35(phase)
-                    );
+                    // --- Create samples for both channels
 
-                    let sin_input = _mm256_add_pd(
-                        _mm256_mul_pd(
+                    let tau_splat = _mm256_set1_pd(TAU);
+
+                    for i in (0..SAMPLE_PASS_SIZE * 2).step_by(4) {
+                        let envelope_volume = _mm256_loadu_pd(&voice_envelope_volumes[voice_index][operator_index][i]);
+                        let volume_product = _mm256_mul_pd(operator_volume_splat, envelope_volume);
+
+                        // Skip generation when envelope volume or operator volume is zero.
+                        // Helps performance when operator envelope lengths vary a lot.
+                        // Otherwise, the branching probably negatively impacts performance.
+                        /*{ FIXME
+                            let volume_on = _mm256_cmp_pd(volume_product, zero_value_limit_splat, _CMP_GT_OS);
+
+                            // Higher indeces don't really matter: if previous sample has zero
+                            // envelope volume, next one probably does too. Worst case scenario
+                            // is that attacks are a tiny bit slower.
+                            if volume_on[0].to_bits() == 0 {
+                                continue;
+                            }
+                        }*/
+
+                        let voice_phases = _mm256_loadu_pd(&voice_phases[voice_index][operator_index][i]);
+                        let modulation_in_for_channel = _mm256_loadu_pd(&voice_modulation_inputs[operator_index][i]);
+
+                        let sample = gen_sin_samples(
+                            tau_splat,
+                            voice_phases,
+                            modulation_in_for_channel,
+                            pan_tendency,
+                            one_minus_pan_tendency,
+                            operator_feedback_splat,
                             operator_modulation_index_splat,
-                            _mm256_add_pd(feedback, modulation_in)
-                        ),
-                        phase
-                    );
+                        );
 
-                    let sample = Sleef_sind4_u35(sin_input);
+                        let sample_adjusted = _mm256_mul_pd(
+                            sample,
+                            _mm256_mul_pd(volume_product, constant_power_panning)
+                        );
+                        let additive_out = _mm256_mul_pd(
+                            sample_adjusted,
+                            operator_additive_splat
+                        );
+                        let modulation_out = _mm256_sub_pd(sample_adjusted, additive_out);
 
-                    let sample_adjusted = _mm256_mul_pd(
-                        sample,
-                        _mm256_mul_pd(volume_product, constant_power_panning)
-                    );
-                    let additive_out = _mm256_mul_pd(
-                        sample_adjusted,
-                        operator_additive_splat
-                    );
-                    let modulation_out = _mm256_sub_pd(sample_adjusted, additive_out);
+                        // Add modulation output to target operator's modulation inputs
+                        let modulation_sum = _mm256_add_pd(
+                            _mm256_loadu_pd(&voice_modulation_inputs[modulation_target][i]),
+                            modulation_out
+                        );
+                        _mm256_storeu_pd(&mut voice_modulation_inputs[modulation_target][i], modulation_sum);
 
-                    // Add modulation output to target operator's modulation inputs
-                    let modulation_sum = _mm256_add_pd(
-                        _mm256_loadu_pd(&voice_modulation_inputs[modulation_target][i]),
-                        modulation_out
-                    );
-                    _mm256_storeu_pd(&mut voice_modulation_inputs[modulation_target][i], modulation_sum);
-
-                    // Add additive output to summed_additive_outputs
-                    let summed_plus_new = _mm256_add_pd(
-                        _mm256_loadu_pd(&summed_additive_outputs[i]),
-                        _mm256_mul_pd(additive_out, key_velocity_splat)
-                    );
-                    _mm256_storeu_pd(&mut summed_additive_outputs[i], summed_plus_new);
+                        // Add additive output to summed_additive_outputs
+                        let summed_plus_new = _mm256_add_pd(
+                            _mm256_loadu_pd(&summed_additive_outputs[i]),
+                            _mm256_mul_pd(additive_out, key_velocity_splat)
+                        );
+                        _mm256_storeu_pd(&mut summed_additive_outputs[i], summed_plus_new);
+                    }
                 } // End of sample pass size *  2 iteration
             } // End of operator iteration
         } // End of voice iteration
@@ -454,4 +437,46 @@ pub unsafe fn process_f32_avx(
             audio_buffer_rights[i + sample_offset] = summed_additive_outputs[j + 1] as f32;
         }
     } // End of pass iteration
+}
+
+
+#[inline]
+#[target_feature(enable = "avx")]
+unsafe fn gen_sin_samples(
+    tau_splat: __m256d,
+    voice_phases: __m256d,
+    modulation_in_for_channel: __m256d,
+    pan_tendency: __m256d,
+    one_minus_pan_tendency: __m256d,
+    operator_feedback_splat: __m256d,
+    operator_modulation_index_splat: __m256d,
+) -> __m256d {
+
+
+    let phase = _mm256_mul_pd(
+        voice_phases,
+        tau_splat
+    );
+
+    // Weird modulation input panning
+    let modulation_in_channel_sum = _mm256_hadd_pd(modulation_in_for_channel, modulation_in_for_channel);
+    let modulation_in = _mm256_add_pd(
+        _mm256_mul_pd(pan_tendency, modulation_in_channel_sum),
+        _mm256_mul_pd(one_minus_pan_tendency, modulation_in_for_channel)
+    );
+
+    let feedback = _mm256_mul_pd(
+        operator_feedback_splat,
+        Sleef_sind4_u35(phase)
+    );
+
+    let sin_input = _mm256_add_pd(
+        _mm256_mul_pd(
+            operator_modulation_index_splat,
+            _mm256_add_pd(feedback, modulation_in)
+        ),
+        phase
+    );
+
+    Sleef_sind4_u35(sin_input)
 }
