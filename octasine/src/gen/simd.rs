@@ -372,42 +372,14 @@ pub unsafe fn process_f32_avx(
                         }
                     }*/
 
-                    let modulation_in_for_channel = _mm256_loadu_pd(&voice_modulation_inputs[operator_index][i]);
-
                     let phase = _mm256_mul_pd(
                         _mm256_loadu_pd(&voice_phases[voice_index][operator_index][i]),
                         tau_splat
                     );
 
                     // Weird modulation input panning
-                    // Note: breaks without VF64_WIDTH >= 2 (SSE2 or newer)
-                    let modulation_in_channel_sum = {
-                        // Replacing with SIMD: suitable instructions in avx:
-                        //   _mm256_permute_pd with imm8 = [1, 0, 1, 0] followed by addition
-                        //     Indices:
-                        //       0 -> 1
-                        //       1 -> 0
-                        //       2 -> 3
-                        //       3 -> 2
-                        //   _mm256_hadd_pd (takes two variables which would need to be identical): pretty slow
-                        // So the idea is to take modulation_in_for_channel and run any of the above on it.
-
-                        let mut permuted = [0.0f64; 8]; // Width 8 in case of eventual avx512 support in simdeez
-
-                        // Should be equivalent to simd instruction permute_pd with imm8 = [1, 0, 1, 0]
-                        for (j, input) in (&voice_modulation_inputs[operator_index][i..i + 4]).iter().enumerate(){
-                            let add = (j + 1) % 2;
-                            let subtract = j % 2;
-
-                            permuted[j + add - subtract] = *input;
-                        }
-
-                        _mm256_add_pd(
-                            _mm256_loadu_pd(&permuted[0]),
-                            modulation_in_for_channel
-                        )
-                    };
-
+                    let modulation_in_for_channel = _mm256_loadu_pd(&voice_modulation_inputs[operator_index][i]);
+                    let modulation_in_channel_sum = _mm256_hadd_pd(modulation_in_for_channel, modulation_in_for_channel);
                     let modulation_in = _mm256_add_pd(
                         _mm256_mul_pd(pan_tendency, modulation_in_channel_sum),
                         _mm256_mul_pd(one_minus_pan_tendency, modulation_in_for_channel)
