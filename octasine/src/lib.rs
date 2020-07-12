@@ -92,24 +92,17 @@ impl OctaSine {
 
 
 impl Plugin for OctaSine {
-    cfg_if::cfg_if! {
-        // Simdeez only supports x86 intrinsics. Although code written with
-        // simdeez provides a scalar fallback, it doesn't work due to my
-        // implementation. So we only want to use the SIMD audio generation
-        // with at least SSE2 present. It is provided by x86_64 by
-        // specification, and since f64s are used in the code anyway, just
-        // feature gate on that, as well as the "simd" feature flag.
-        if #[cfg(all(feature = "simd", target_arch = "x86_64"))] {
-            fn process(&mut self, buffer: &mut vst::buffer::AudioBuffer<f32>){
-                unsafe {
-                    gen::simd::process_f32_avx(self, buffer);
-                }
+    fn process(&mut self, buffer: &mut vst::buffer::AudioBuffer<f32>){
+        #[cfg(feature = "simd")]
+        if is_x86_feature_detected!("avx"){
+            unsafe {
+                gen::simd::process_f32_avx(self, buffer);
             }
-        } else {
-            fn process(&mut self, buffer: &mut vst::buffer::AudioBuffer<f32>){
-                gen::fallback::process_f32(self, buffer);
-            }
+
+            return;
         }
+
+        gen::fallback::process_f32(self, buffer);
     }
 
     fn new(host: HostCallback) -> Self {

@@ -426,7 +426,6 @@ dependencies = [
  "array-init",
  "arrayvec",
  "assert_approx_eq",
- "cfg-if",
  "dirs",
  "fastrand",
  "itertools",
