@@ -319,6 +319,9 @@ pub unsafe fn process_f32_avx(
         voice_envelope_volumes.clear();
         voice_phases.clear();
         key_velocities.clear();
+
+        #[cfg(feature = "with-coz")]
+        coz::progress!();
     } // End of pass iteration
 }
 
