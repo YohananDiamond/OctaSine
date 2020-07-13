@@ -14,9 +14,9 @@ with-coz = ["coz"]
 [lib]
 name = "octasine"
 
-[[bench]]
-name = "process"
-harness = false
+[[bin]]
+name = "bench-process"
+path = "bin/bench-process.rs"
 
 [dependencies]
 arrayvec = { version = "0.5", optional = true }
