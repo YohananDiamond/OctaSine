@@ -44,6 +44,9 @@ use octasine::*;
 /// Speed compared to fallback:   2.1309862x
 /// ```
 fn main(){
+    #[cfg(feature = "coz")]
+    coz::thread_init();
+
     // Unsafe because process_fn argument is unsafe, which is necessary for simd functions
     #[inline]
     unsafe fn fallback(octasine: &mut OctaSine, audio_buffer: &mut AudioBuffer<f32>){
