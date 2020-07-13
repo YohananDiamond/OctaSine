@@ -6,8 +6,12 @@
   - ergonomics improvement: command line argument for number of iterations
   - more realistic benchmark? with more variation over iterations,
     include noise gen, possibly slower changes?
-- avx audio gen: interpolation for processing parameters every sample? Build
-  long arrays here too?
+- avx audio gen
+  - write directly into left and right output buffers? sample iteration would
+    need to be in shape of [l, l, l, l, r, r, r, r] then
+  - think about doing phase calculation closer to where data is used
+  - interpolation for processing parameters every sample? Build long arrays
+    here too?
 
 ## Other
 
@@ -37,4 +41,4 @@ Profiling with coz (https://github.com/plasma-umass/coz) didn't result in
 very relevant results. It did recommend speeding up voice generation in
 general (likely envelope generation), but this was already known. It also
 pointed out on line in the fallback audio gen that might be interesting. I
-added a comment to it.
+added a comment to it, but it's very low priority.
