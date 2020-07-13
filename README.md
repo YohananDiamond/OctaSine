@@ -90,7 +90,6 @@ Different parts of this project are licensed under different terms:
 
 Depends on the following git repositories:
 
-  * https://github.com/greatest-ape/simdeez (__octasine__ branch for avx support and very fast sleef sines)
   * https://github.com/greatest-ape/sleef-sys (__octasine__ branch for static linking and avx instruction generation)
 
 Nightly toolchains known to work:
