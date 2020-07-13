@@ -258,58 +258,85 @@ pub unsafe fn process_f32_avx(
                     continue;
                 }
 
+                let operator_modulation_target = operator_modulation_targets[operator_index];
+
                 // Get panning as value between -1 and 1
                 let pan_transformed = 2.0 * (operator_panning[operator_index] - 0.5);
 
                 let pan_tendency_right = pan_transformed.max(0.0);
                 let pan_tendency_left = (pan_transformed * -1.0).max(0.0);
 
-                gen_sin_samples_for_voice_operator_channel( // left channel
-                    &octasine.processing.rng,
+                if operator_wave_type[operator_index] == WaveType::WhiteNoise {
+                    gen_noise_samples_for_voice_operator_channel( // left channel
+                        &octasine.processing.rng,
 
-                    &mut additive_outputs_left,
-                    &mut voice_modulation_inputs_left,
-                    &voice_modulation_inputs_right[operator_index],
-                    &mut dummy_modulation_out[..],
+                        &mut additive_outputs_left,
+                        &mut voice_modulation_inputs_left[operator_modulation_target],
 
-                    &voice_envelope_volumes[voice_index][operator_index],
-                    &voice_phases[voice_index][operator_index],
-                    key_velocity_splat,
+                        &voice_envelope_volumes[voice_index][operator_index],
+                        key_velocity_splat,
 
-                    operator_index,
-                    operator_wave_type[operator_index],
-                    operator_volume[operator_index],
-                    operator_additive[operator_index],
-                    operator_modulation_targets[operator_index],
-                    operator_feedback[operator_index],
-                    operator_modulation_index[operator_index],
+                        operator_volume[operator_index],
+                        operator_additive[operator_index],
 
-                    pan_tendency_left,
-                    operators[operator_index].panning.left_and_right[0]
-                );
-                gen_sin_samples_for_voice_operator_channel( // right channel
-                    &octasine.processing.rng,
+                        operators[operator_index].panning.left_and_right[0]
+                    );
+                    gen_noise_samples_for_voice_operator_channel( // right channel
+                        &octasine.processing.rng,
 
-                    &mut additive_outputs_right,
-                    &mut voice_modulation_inputs_right,
-                    &voice_modulation_inputs_left[operator_index],
-                    &mut dummy_modulation_out[..],
+                        &mut additive_outputs_right,
+                        &mut voice_modulation_inputs_right[operator_modulation_target],
 
-                    &voice_envelope_volumes[voice_index][operator_index],
-                    &voice_phases[voice_index][operator_index],
-                    key_velocity_splat,
+                        &voice_envelope_volumes[voice_index][operator_index],
+                        key_velocity_splat,
 
-                    operator_index,
-                    operator_wave_type[operator_index],
-                    operator_volume[operator_index],
-                    operator_additive[operator_index],
-                    operator_modulation_targets[operator_index],
-                    operator_feedback[operator_index],
-                    operator_modulation_index[operator_index],
+                        operator_volume[operator_index],
+                        operator_additive[operator_index],
 
-                    pan_tendency_left,
-                    operators[operator_index].panning.left_and_right[1]
-                );
+                        operators[operator_index].panning.left_and_right[1]
+                    );
+                } else {
+                    gen_sin_samples_for_voice_operator_channel( // left channel
+                        &mut additive_outputs_left,
+                        &mut voice_modulation_inputs_left,
+                        &voice_modulation_inputs_right[operator_index],
+                        &mut dummy_modulation_out[..],
+
+                        &voice_envelope_volumes[voice_index][operator_index],
+                        &voice_phases[voice_index][operator_index],
+                        key_velocity_splat,
+
+                        operator_index,
+                        operator_volume[operator_index],
+                        operator_additive[operator_index],
+                        operator_modulation_target,
+                        operator_feedback[operator_index],
+                        operator_modulation_index[operator_index],
+
+                        pan_tendency_left,
+                        operators[operator_index].panning.left_and_right[0]
+                    );
+                    gen_sin_samples_for_voice_operator_channel( // right channel
+                        &mut additive_outputs_right,
+                        &mut voice_modulation_inputs_right,
+                        &voice_modulation_inputs_left[operator_index],
+                        &mut dummy_modulation_out[..],
+
+                        &voice_envelope_volumes[voice_index][operator_index],
+                        &voice_phases[voice_index][operator_index],
+                        key_velocity_splat,
+
+                        operator_index,
+                        operator_volume[operator_index],
+                        operator_additive[operator_index],
+                        operator_modulation_target,
+                        operator_feedback[operator_index],
+                        operator_modulation_index[operator_index],
+
+                        pan_tendency_right,
+                        operators[operator_index].panning.left_and_right[1]
+                    );
+                }
             } // End of operator iteration
         } // End of voice iteration
 
@@ -319,7 +346,9 @@ pub unsafe fn process_f32_avx(
         let max_volume_splat = _mm256_set1_pd(5.0);
         let min_volume_splat = _mm256_set1_pd(-5.0);
 
-        for chunk in additive_outputs_left.chunks_exact_mut(4).chain(additive_outputs_right.chunks_exact_mut(4)){
+        for chunk in additive_outputs_left.chunks_exact_mut(4).chain(
+            additive_outputs_right.chunks_exact_mut(4)
+        ){
             let mut outputs = _mm256_loadu_pd(&chunk[0]);
 
             outputs = _mm256_mul_pd(master_volume_factor_splat, outputs);
@@ -358,42 +387,33 @@ pub unsafe fn process_f32_avx(
 }
 
 
+
 #[inline]
 #[target_feature(enable = "avx")]
-unsafe fn gen_sin_samples_for_voice_operator_channel(
+unsafe fn gen_noise_samples_for_voice_operator_channel(
     rng: &Rng,
 
     additive_outputs: &mut [f64],
-    voice_modulation_inputs_for_channel: &mut [[f64; SAMPLE_PASS_SIZE]; 4],
-    voice_modulation_inputs_for_other_channel: &[f64],
-    dummy_modulation_out: &mut [f64],
+    modulation_outputs: &mut [f64],
 
     voice_envelope_volumes: &[f64],
-    voice_phases: &[f64],
     key_velocity_splat: __m256d,
 
-    operator_index: usize,
-    operator_wave_type: WaveType,
     operator_volume: f64,
     operator_additive: f64,
-    operator_modulation_target: usize,
-    operator_feedback: f64,
-    operator_modulation_index: f64,
 
-    pan_tendency: f64,
     constant_power_panning: f64
 ){
-    /* noise code
-
-    //let two_splat = _mm256_set1_pd(2.0);
-
-    //let operator_is_noise = operator_wave_type == WaveType::WhiteNoise;
-    let modulation_out_chunks = voice_modulation_inputs[operator_modulation_target].chunks_exact_mut(4);
+    let one_splat = _mm256_set1_pd(1.0);
+    let two_splat = _mm256_set1_pd(2.0);
+    let operator_volume_splat = _mm256_set1_pd(operator_volume);
+    let operator_additive_splat = _mm256_set1_pd(operator_additive);
+    let constant_power_panning_splat = _mm256_set1_pd(constant_power_panning);
 
     let chunks = izip!(
-        summed_additive_output_chunks,
-        modulation_out_chunks,
-        envelope_volume_chunks,
+        additive_outputs.chunks_exact_mut(4),
+        modulation_outputs.chunks_exact_mut(4),
+        voice_envelope_volumes.chunks_exact(4),
     );
 
     for (
@@ -412,7 +432,7 @@ unsafe fn gen_sin_samples_for_voice_operator_channel(
 
         write_samples_to_chunks(
             volume_product,
-            constant_power_panning,
+            constant_power_panning_splat,
             operator_additive_splat,
             key_velocity_splat,
             &mut modulation_out_chunk,
@@ -420,8 +440,31 @@ unsafe fn gen_sin_samples_for_voice_operator_channel(
             samples,
         );
     }
-    */
+}
 
+
+#[inline]
+#[target_feature(enable = "avx")]
+unsafe fn gen_sin_samples_for_voice_operator_channel(
+    additive_outputs: &mut [f64],
+    voice_modulation_inputs_for_channel: &mut [[f64; SAMPLE_PASS_SIZE]; 4],
+    voice_modulation_inputs_for_other_channel: &[f64],
+    dummy_modulation_out: &mut [f64],
+
+    voice_envelope_volumes: &[f64],
+    voice_phases: &[f64],
+    key_velocity_splat: __m256d,
+
+    operator_index: usize,
+    operator_volume: f64,
+    operator_additive: f64,
+    operator_modulation_target: usize,
+    operator_feedback: f64,
+    operator_modulation_index: f64,
+
+    pan_tendency: f64,
+    constant_power_panning: f64
+){
     let tau_splat = _mm256_set1_pd(TAU);
     let one_splat = _mm256_set1_pd(1.0);
     let operator_volume_splat = _mm256_set1_pd(operator_volume);
