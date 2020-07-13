@@ -43,6 +43,9 @@ pub fn process_f32(octasine: &mut OctaSine, audio_buffer: &mut AudioBuffer<f32>)
 
         *buffer_sample_left = left as f32;
         *buffer_sample_right = right as f32;
+
+        #[cfg(feature = "with-coz")]
+        coz::progress!();
     }
 }
 
