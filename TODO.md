@@ -1,5 +1,13 @@
 # TODO
 
+determine if audio gen changed from 8b61c9e91bf175095ea279052857c3f97bc4f03a
+(working?) to 4e6647f47374065030214a59c8f6ba918a0f084c (probably working but
+maybe not).
+
+look at splats (do them less often, naming in functions close to bottom)
+look at izip in noise gen (move to loop)
+store `__m256d`s in array vecs etc to avoid loads and stores?
+
 ## Performance
 
 - bench-process
