@@ -125,7 +125,7 @@ pub fn generate_voice_samples(
         let operator_panning = operator.panning.get_value(time);
 
         // Get additive factor; use 1.0 for operator 1
-        let operator_additive = if operator_index == 0 { // coz: +85% -> +28%
+        let operator_additive = if operator_index == 0 {
             1.0
         } else {
             operator.additive_factor.get_value(time)
@@ -159,7 +159,7 @@ pub fn generate_voice_samples(
         };
 
         // If volume is off, skip sound generation and panning
-        if operator_volume < ZERO_VALUE_LIMIT || // coz: +65% -> +17%
+        if operator_volume < ZERO_VALUE_LIMIT ||
             envelope_volume < ZERO_VALUE_LIMIT {
             continue;
         }
@@ -176,7 +176,8 @@ pub fn generate_voice_samples(
         // for this optimization for now.
         #[allow(clippy::float_cmp)] 
         if operator_panning != 0.5 {
-            let pan_transformed = 2.0 * (operator_panning - 0.5); // coz: 50%+ -> 16.3%+
+            // note: coz claims that this line is relevant to performance
+            let pan_transformed = 2.0 * (operator_panning - 0.5);
 
             let right_tendency = pan_transformed.max(0.0);
             let left_tendency = (-pan_transformed).max(0.0);
