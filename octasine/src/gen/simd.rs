@@ -230,7 +230,6 @@ pub unsafe fn process_f32_avx(
 
         // --- Generate samples for all operators and voices
 
-        // Sample pass size * 2 because of two channels. Even index = left channel
         let mut additive_outputs_left = [0.0f64; SAMPLE_PASS_SIZE];
         let mut additive_outputs_right = [0.0f64; SAMPLE_PASS_SIZE];
 
@@ -385,7 +384,6 @@ pub unsafe fn process_f32_avx(
         coz::progress!();
     } // End of pass iteration
 }
-
 
 
 #[inline]
