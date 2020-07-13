@@ -282,13 +282,7 @@ pub unsafe fn process_f32_avx(
                     operator_feedback[operator_index],
                     operator_modulation_index[operator_index],
                 );
-
-                #[cfg(feature = "with-coz")]
-                coz::progress!();
             } // End of operator iteration
-
-            #[cfg(feature = "with-coz")]
-            coz::progress!();
         } // End of voice iteration
 
         // --- Summed additive outputs: apply master volume and hard limit.
@@ -307,9 +301,6 @@ pub unsafe fn process_f32_avx(
             outputs = _mm256_max_pd(min_volume_splat, outputs);
 
             _mm256_storeu_pd(&mut chunk[0], outputs);
-
-            #[cfg(feature = "with-coz")]
-            coz::progress!();
         }
 
         // --- Write additive outputs to audio buffer
@@ -328,9 +319,6 @@ pub unsafe fn process_f32_avx(
         voice_envelope_volumes.clear();
         voice_phases.clear();
         key_velocities.clear();
-
-        #[cfg(feature = "with-coz")]
-        coz::progress!();
     } // End of pass iteration
 }
 
@@ -405,9 +393,6 @@ unsafe fn gen_samples_for_voice_operator(
                 &mut additive_out_chunk,
                 samples,
             );
-
-            #[cfg(feature = "with-coz")]
-            coz::progress!();
         }
     } else {
         let operator_feedback_splat = _mm256_set1_pd(operator_feedback);
@@ -468,9 +453,6 @@ unsafe fn gen_samples_for_voice_operator(
                 &mut additive_out_chunk,
                 samples,
             );
-
-            #[cfg(feature = "with-coz")]
-            coz::progress!();
         }
     } // End of sample pass size *  2 iteration
 }

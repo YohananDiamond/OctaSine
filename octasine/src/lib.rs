@@ -99,10 +99,16 @@ impl Plugin for OctaSine {
                 gen::simd::process_f32_avx(self, buffer);
             }
 
+            #[cfg(feature = "with-coz")]
+            coz::progress!();
+
             return;
         }
 
         gen::fallback::process_f32(self, buffer);
+
+        #[cfg(feature = "with-coz")]
+        coz::progress!();
     }
 
     fn new(host: HostCallback) -> Self {
