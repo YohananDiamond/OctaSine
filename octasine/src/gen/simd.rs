@@ -396,6 +396,9 @@ unsafe fn gen_samples_for_voice_operator(
                 &mut additive_out_chunk,
                 samples,
             );
+
+            #[cfg(feature = "with-coz")]
+            coz::progress!();
         }
     } else {
         let operator_feedback_splat = _mm256_set1_pd(operator_feedback);
@@ -456,6 +459,9 @@ unsafe fn gen_samples_for_voice_operator(
                 &mut additive_out_chunk,
                 samples,
             );
+
+            #[cfg(feature = "with-coz")]
+            coz::progress!();
         }
     } // End of sample pass size *  2 iteration
 }
