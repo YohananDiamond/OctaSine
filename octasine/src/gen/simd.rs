@@ -319,6 +319,9 @@ pub unsafe fn process_f32_avx(
         voice_envelope_volumes.clear();
         voice_phases.clear();
         key_velocities.clear();
+
+        #[cfg(feature = "with-coz")]
+        coz::progress!();
     } // End of pass iteration
 }
 
@@ -455,6 +458,9 @@ unsafe fn gen_samples_for_voice_operator(
             );
         }
     } // End of sample pass size *  2 iteration
+
+    #[cfg(feature = "with-coz")]
+    coz::progress!();
 }
 
 

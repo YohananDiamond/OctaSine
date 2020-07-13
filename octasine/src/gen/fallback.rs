@@ -88,6 +88,9 @@ pub fn gen_samples_for_voices(octasine: &mut OctaSine) -> (f64, f64) {
 
     octasine.processing.global_time.0 += time_per_sample.0;
 
+    #[cfg(feature = "with-coz")]
+    coz::progress!();
+
     (voice_sum_left, voice_sum_right)
 }
 
