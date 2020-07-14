@@ -533,8 +533,8 @@ unsafe fn gen_sin_samples(
     modulation_in_for_other_channel: __m256d,
     pan_tendency: __m256d,
     one_minus_pan_tendency: __m256d,
-    operator_feedback_splat: __m256d,
-    operator_modulation_index_splat: __m256d,
+    operator_feedback: __m256d,
+    operator_modulation_index: __m256d,
 ) -> __m256d {
     let phase = _mm256_mul_pd(voice_phases, tau_splat);
 
@@ -549,13 +549,13 @@ unsafe fn gen_sin_samples(
     );
 
     let feedback = _mm256_mul_pd(
-        operator_feedback_splat,
+        operator_feedback,
         Sleef_sind4_u35(phase)
     );
 
     let sin_input = _mm256_add_pd(
         _mm256_mul_pd(
-            operator_modulation_index_splat,
+            operator_modulation_index,
             _mm256_add_pd(feedback, modulation_in)
         ),
         phase
