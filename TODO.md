@@ -5,6 +5,10 @@
   interpolation is done for each sample?
 - phase: avoid multiplication trick for "less precision", since it probably
   doesn't work any more
+- dependency analysis: simplify / optimize for new code structure, also move
+  to own function
+- voice envelope and phase calculation could maybe be moved to own function
+- think about doing phase calculation closer to where data is used??
 
 ## Performance
 
@@ -12,8 +16,6 @@
   - ergonomics improvement: command line argument for number of iterations
   - more realistic benchmark? with more variation over iterations,
     include noise gen, possibly slower changes?
-- avx audio gen
-  - think about doing phase calculation closer to where data is used
 
 ## Other
 
