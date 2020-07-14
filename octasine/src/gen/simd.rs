@@ -391,23 +391,11 @@ pub unsafe fn process_f32_avx(
 
         // --- Write additive outputs to audio buffer
 
-        // Converting to f32s and writing directly would be nice..
-        
-        let mut tmp_left = [0.0f64; VECTOR_WIDTH];
-        let mut tmp_right = [0.0f64; VECTOR_WIDTH];
+        let additive_outputs_left = _mm256_cvtpd_ps(additive_outputs_left);
+        let additive_outputs_right = _mm256_cvtpd_ps(additive_outputs_right);
 
-        _mm256_storeu_pd(&mut tmp_left[0], additive_outputs_left);
-        _mm256_storeu_pd(&mut tmp_right[0], additive_outputs_right);
-        
-        for (additive_out_left, additive_out_right, buffer_left, buffer_right) in izip!(
-            tmp_left.iter(),
-            tmp_right.iter(),
-            audio_buffer_left_chunk.iter_mut(),
-            audio_buffer_right_chunk.iter_mut()
-        ){
-            *buffer_left = *additive_out_left as f32;
-            *buffer_right = *additive_out_right as f32;
-        }
+        _mm_storeu_ps(&mut audio_buffer_left_chunk[0], additive_outputs_left);
+        _mm_storeu_ps(&mut audio_buffer_right_chunk[0], additive_outputs_right);
 
         // --- Clean up voice data for next pass
 
