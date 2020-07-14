@@ -470,7 +470,7 @@ unsafe fn gen_noise_samples_for_voice_operator_channel(
     let envelope_volume = _mm256_loadu_pd(&voice_envelope_volumes[0]);
     let volume_product = _mm256_mul_pd(operator_volume, envelope_volume);
 
-    write_samples_to_chunks(
+    write_samples_to_outputs(
         volume_product,
         constant_power_panning,
         operator_additive,
@@ -537,7 +537,7 @@ unsafe fn gen_sin_samples_for_voice_operator_channel(
         operator_modulation_index,
     );
 
-    write_samples_to_chunks(
+    write_samples_to_outputs(
         volume_product,
         constant_power_panning,
         operator_additive,
@@ -619,28 +619,41 @@ unsafe fn gen_noise_samples(
 
 #[inline]
 #[target_feature(enable = "avx")]
-unsafe fn write_samples_to_chunks(
+unsafe fn write_samples_to_outputs(
     volume_product: __m256d,
     constant_power_panning: __m256d,
-    operator_additive_splat: __m256d,
+    operator_additive: __m256d,
     key_velocity_splat: __m256d,
-    modulation_out_chunk: &mut __m256d, // FIXME: return instead
-    additive_out_chunk: &mut __m256d, // FIXME: return instead
+    modulation_out: &mut __m256d, // FIXME: return instead?
+    additive_out: &mut __m256d, // FIXME: return instead?
     sample: __m256d,
 ){
-    let sample_adjusted = _mm256_mul_pd(sample, _mm256_mul_pd(volume_product, constant_power_panning));
-    let new_additive_out = _mm256_mul_pd(sample_adjusted, operator_additive_splat);
-    let new_modulation_out = _mm256_sub_pd(sample_adjusted, new_additive_out);
-
-
-    *modulation_out_chunk = _mm256_add_pd(
-        *modulation_out_chunk,
-        new_modulation_out
+    // Adjust sample volume
+    let sample = _mm256_mul_pd(
+        sample,
+        _mm256_mul_pd(
+            volume_product,
+            constant_power_panning
+        )
     );
 
-    *additive_out_chunk = _mm256_add_pd(
-        *additive_out_chunk,
-        _mm256_mul_pd(new_additive_out, key_velocity_splat)
+    let additional_additive_out = _mm256_mul_pd(sample, operator_additive);
+    let additional_modulation_out = _mm256_sub_pd(
+        sample,
+        additional_additive_out
+    );
+
+    *modulation_out = _mm256_add_pd(
+        *modulation_out,
+        additional_modulation_out
+    );
+
+    *additive_out = _mm256_add_pd(
+        *additive_out,
+        _mm256_mul_pd(
+            additional_additive_out,
+            key_velocity_splat
+        )
     );
 }
 
