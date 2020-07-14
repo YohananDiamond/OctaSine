@@ -146,66 +146,15 @@ pub unsafe fn process_f32_avx(
 
         octasine.processing.global_time = time;
 
-        // --- Operator dependency analysis to allow skipping audio generation when possible
+        // --- Check operator dependency chains to enable audio gen skipping
 
-        let operator_skip_generation: [bool; 4] = {
-            let mut operator_generate_audio = [[true; VECTOR_WIDTH]; 4];
-            let mut operator_additive_zero = [[false; VECTOR_WIDTH]; 4];
-            let mut operator_modulation_index_zero = [[false; VECTOR_WIDTH]; 4];
-
-            // Output
-            let mut operator_skip_generation = [false; 4];
-
-            for operator_index in 0..4 {
-                for i in 0..VECTOR_WIDTH {
-                    // If volume is off, just set to skippable, don't even bother with lt calculations
-                    if operator_volume[operator_index][i].lt(&ZERO_VALUE_LIMIT){
-                        operator_generate_audio[operator_index][i] = false;
-                    } else {
-                        operator_additive_zero[operator_index][i] =
-                            operator_additive[operator_index][i].lt(&ZERO_VALUE_LIMIT);
-
-                        operator_modulation_index_zero[operator_index][i] =
-                            operator_modulation_index[operator_index][i].lt(&ZERO_VALUE_LIMIT);
-                    }
-                }
-            }
-
-            for _ in 0..3 {
-                for operator_index in 1..4 {
-                    for i in 0..VECTOR_WIDTH {
-                        let modulation_target = operator_modulation_targets[operator_index];
-
-                        // Skip generation if operator was previously determined to be skippable OR
-                        let skip_condition = !operator_generate_audio[operator_index][i] || (
-                            // Additive factor for this operator is off AND
-                            operator_additive_zero[operator_index][i] && (
-                                // Modulation target was previously determined to be skippable OR
-                                !operator_generate_audio[modulation_target][i] ||
-                                // Modulation target is white noise OR
-                                operator_wave_type[modulation_target] == WaveType::WhiteNoise ||
-                                // Modulation target doesn't do anything with its input modulation
-                                operator_modulation_index_zero[modulation_target][i]
-                            )
-                        );
-
-                        if skip_condition {
-                            operator_generate_audio[operator_index][i] = false;
-                        }
-                    }
-                }
-            }
-
-            // Be very conservative and require the operator to be skippable
-            // in all samples to actually skip it
-            for (samples, skip) in operator_generate_audio.iter()
-                .zip(operator_skip_generation.iter_mut())
-            {
-                *skip = samples.iter().all(|should_gen| !should_gen);
-            }
-
-            operator_skip_generation
-        };
+        let operator_skip_generation = calculate_operator_skip_generation(
+            operator_wave_type,
+            operator_modulation_targets,
+            operator_volume,
+            operator_additive,
+            operator_modulation_index,
+        );
 
         // --- Collect voice data (envelope volume, phases) necessary for sound generation
 
@@ -469,6 +418,75 @@ pub unsafe fn process_f32_avx(
         #[cfg(feature = "with-coz")]
         coz::progress!();
     } // End of pass iteration
+}
+
+
+/// Operator dependency analysis to allow skipping audio generation when
+/// possible
+#[inline]
+#[target_feature(enable = "avx")]
+unsafe fn calculate_operator_skip_generation(
+    operator_wave_type: [WaveType; 4],
+    operator_modulation_targets: [usize; 4],
+    operator_volume: [[f64; VECTOR_WIDTH]; 4],
+    operator_additive: [[f64; VECTOR_WIDTH]; 4],
+    operator_modulation_index: [[f64; VECTOR_WIDTH]; 4],
+) -> [bool; 4] {
+    let mut operator_generate_audio = [[true; VECTOR_WIDTH]; 4];
+    let mut operator_additive_zero = [[false; VECTOR_WIDTH]; 4];
+    let mut operator_modulation_index_zero = [[false; VECTOR_WIDTH]; 4];
+
+    for operator_index in 0..4 {
+        for i in 0..VECTOR_WIDTH {
+            // If volume is off, just set to skippable, don't even bother with lt calculations
+            if operator_volume[operator_index][i].lt(&ZERO_VALUE_LIMIT){
+                operator_generate_audio[operator_index][i] = false;
+            } else {
+                operator_additive_zero[operator_index][i] =
+                    operator_additive[operator_index][i].lt(&ZERO_VALUE_LIMIT);
+
+                operator_modulation_index_zero[operator_index][i] =
+                    operator_modulation_index[operator_index][i].lt(&ZERO_VALUE_LIMIT);
+            }
+        }
+    }
+
+    for _ in 0..3 {
+        for operator_index in 1..4 {
+            for i in 0..VECTOR_WIDTH {
+                let modulation_target = operator_modulation_targets[operator_index];
+
+                // Skip generation if operator was previously determined to be skippable OR
+                let skip_condition = !operator_generate_audio[operator_index][i] || (
+                    // Additive factor for this operator is off AND
+                    operator_additive_zero[operator_index][i] && (
+                        // Modulation target was previously determined to be skippable OR
+                        !operator_generate_audio[modulation_target][i] ||
+                        // Modulation target is white noise OR
+                        operator_wave_type[modulation_target] == WaveType::WhiteNoise ||
+                        // Modulation target doesn't do anything with its input modulation
+                        operator_modulation_index_zero[modulation_target][i]
+                    )
+                );
+
+                if skip_condition {
+                    operator_generate_audio[operator_index][i] = false;
+                }
+            }
+        }
+    }
+
+    let mut operator_skip_generation = [false; 4];
+
+    // Be very conservative and require the operator to be skippable
+    // in all samples to actually skip it
+    for (samples, skip) in operator_generate_audio.iter()
+        .zip(operator_skip_generation.iter_mut())
+    {
+        *skip = samples.iter().all(|should_gen| !should_gen);
+    }
+
+    operator_skip_generation
 }
 
 
