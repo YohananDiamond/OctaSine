@@ -18,9 +18,25 @@ use crate::constants::*;
 use crate::processing_parameters::*;
 
 
-/// Each SAMPLE_PASS_SIZE samples, load parameter changes and processing
-/// parameter values (interpolated values where applicable)
-const SAMPLE_PASS_SIZE: usize = 32;
+// /// Each SAMPLE_PASS_SIZE samples, load parameter changes and processing
+// /// parameter values (interpolated values where applicable)
+// const SAMPLE_PASS_SIZE: usize = 32;
+
+
+const VECTOR_WIDTH: usize = 4;
+
+
+macro_rules! convert_to_simd {
+    ($name:ident) => {
+        let $name = [
+            _mm256_loadu_pd(&$name[0][0]),
+            _mm256_loadu_pd(&$name[1][0]),
+            _mm256_loadu_pd(&$name[2][0]),
+            _mm256_loadu_pd(&$name[3][0]),
+        ];
+    };
+}
+
 
 
 #[target_feature(enable = "avx")]
@@ -29,8 +45,8 @@ pub unsafe fn process_f32_avx(
     audio_buffer: &mut AudioBuffer<f32>
 ){
     // Per-pass voice data. Indexing: 128 voices, 4 operators
-    let mut voice_envelope_volumes: ArrayVec<[[[f64; SAMPLE_PASS_SIZE]; 4]; 128]> = ArrayVec::new();
-    let mut voice_phases: ArrayVec<[[[f64; SAMPLE_PASS_SIZE]; 4]; 128]> = ArrayVec::new();
+    let mut voice_envelope_volumes: ArrayVec<[[[f64; VECTOR_WIDTH]; 4]; 128]> = ArrayVec::new();
+    let mut voice_phases: ArrayVec<[[[f64; VECTOR_WIDTH]; 4]; 128]> = ArrayVec::new();
     let mut key_velocities: ArrayVec<[f64; 128]> = ArrayVec::new();
 
     let mut audio_buffer_outputs = audio_buffer.split().1;
@@ -38,8 +54,8 @@ pub unsafe fn process_f32_avx(
     let audio_buffer_rights = audio_buffer_outputs.get_mut(1);
 
     let audio_buffer_chunks = izip!(
-        audio_buffer_lefts.chunks_exact_mut(SAMPLE_PASS_SIZE),
-        audio_buffer_rights.chunks_exact_mut(SAMPLE_PASS_SIZE)
+        audio_buffer_lefts.chunks_exact_mut(VECTOR_WIDTH),
+        audio_buffer_rights.chunks_exact_mut(VECTOR_WIDTH)
     );
 
     for (audio_buffer_left_chunk, audio_buffer_right_chunk) in audio_buffer_chunks {
@@ -61,41 +77,18 @@ pub unsafe fn process_f32_avx(
         // --- Set some generally useful variables
 
         let operators = &mut octasine.processing.parameters.operators;
-
         let time_per_sample = octasine.processing.time_per_sample;
-        let time = octasine.processing.global_time;
-        let master_volume_factor = VOICE_VOLUME_FACTOR * octasine.processing.parameters.master_volume.get_value(time);
-
-        // --- Get operator-only data which will be valid for whole pass and all voices.
-
-        // Interpolated
-        let mut operator_volume: [f64; 4] = [0.0; 4];
-        let mut operator_modulation_index = [0.0f64; 4];
-        let mut operator_feedback: [f64; 4] = [0.0; 4];
-        let mut operator_panning: [f64; 4] = [0.0; 4];
-        let mut operator_additive: [f64; 4] = [0.0; 4];
         
-        // Not interpolated
+        // -- Fetch non-interpolated values
+
         let mut operator_wave_type = [WaveType::Sine; 4];
-        let mut operator_frequency_modifiers: [f64; 4] = [0.0; 4]; 
+        let mut operator_frequency_modifiers = [0.0f64; 4]; 
         let mut operator_modulation_targets = [0usize; 4];
 
-        for (index, operator) in operators.iter_mut().enumerate(){
-            operator_volume[index] = operator.volume.get_value(time);
-            operator_modulation_index[index] = operator.modulation_index.get_value(time);
-            operator_feedback[index] = operator.feedback.get_value(time);
-            operator_panning[index] = operator.panning.get_value(time);
+        for (operator_index, operator) in operators.iter_mut().enumerate(){
+            operator_wave_type[operator_index] = operator.wave_type.value;
 
-            // Get additive factor; use 1.0 for operator 1
-            operator_additive[index] = if index == 0 {
-                1.0
-            } else {
-                operator.additive_factor.get_value(time)
-            };
-
-            operator_wave_type[index] = operator.wave_type.value;
-
-            operator_frequency_modifiers[index] = operator.frequency_ratio.value *
+            operator_frequency_modifiers[operator_index] = operator.frequency_ratio.value *
                 operator.frequency_free.value * operator.frequency_fine.value;
 
             if let Some(p) = &mut operator.output_operator {
@@ -107,58 +100,98 @@ pub unsafe fn process_f32_avx(
                 };
 
                 if let Some(value) = opt_value {
-                    operator_modulation_targets[index] = value;
+                    operator_modulation_targets[operator_index] = value;
                 }
             }
         }
 
-        // Operator dependency analysis to allow skipping audio generation when possible
-        let operator_generate_audio: [bool; 4] = {
-            let mut operator_generate_audio = [true; 4];
-            let mut operator_additive_zero = [false; 4];
-            let mut operator_modulation_index_zero = [false; 4];
-            
-            for operator_index in 0..4 {
-                // If volume is off, just set to skippable, don't even bother with lt calculations
-                if operator_volume[operator_index].lt(&ZERO_VALUE_LIMIT){
-                    operator_generate_audio[operator_index] = false;
-                } else {
-                    operator_additive_zero[operator_index] =
-                        operator_additive[operator_index].lt(&ZERO_VALUE_LIMIT);
+        // -- Fetch interpolated values
 
-                    operator_modulation_index_zero[operator_index] =
-                        operator_modulation_index[operator_index].lt(&ZERO_VALUE_LIMIT);
-                }
+        let mut master_volume_factor = [0.0f64; VECTOR_WIDTH];
+        let mut operator_volume = [[0.0f64; VECTOR_WIDTH]; 4];
+        let mut operator_modulation_index = [[0.0f64; VECTOR_WIDTH]; 4];
+        let mut operator_feedback = [[0.0f64; VECTOR_WIDTH]; 4];
+        let mut operator_panning = [[0.0f64; VECTOR_WIDTH]; 4];
+        let mut operator_additive = [[0.0f64; VECTOR_WIDTH]; 4];
+        let mut operator_constant_power_panning_left = [[0.0f64; VECTOR_WIDTH]; 4];
+        let mut operator_constant_power_panning_right = [[0.0f64; VECTOR_WIDTH]; 4];
+
+        let mut time = octasine.processing.global_time;
+
+        for i in 0..VECTOR_WIDTH {
+            master_volume_factor[i] = VOICE_VOLUME_FACTOR *
+                octasine.processing.parameters.master_volume.get_value(time);
+
+            for (operator_index, operator) in operators.iter_mut().enumerate(){
+                operator_volume[operator_index][i] = operator.volume.get_value(time);
+                operator_modulation_index[operator_index][i] = operator.modulation_index.get_value(time);
+                operator_feedback[operator_index][i] = operator.feedback.get_value(time);
+                operator_panning[operator_index][i] = operator.panning.get_value(time);
+
+                operator_constant_power_panning_left[operator_index][i] =
+                    operator.panning.left_and_right[0];
+                operator_constant_power_panning_right[operator_index][i] =
+                    operator.panning.left_and_right[1];
+
+                // Get additive factor; use 1.0 for operator 1
+                operator_additive[operator_index][i] = if operator_index == 0 {
+                    1.0
+                } else {
+                    operator.additive_factor.get_value(time)
+                };
             }
 
-            for _ in 0..3 {
-                for operator_index in 1..4 {
-                    let modulation_target = operator_modulation_targets[operator_index];
+            time.0 += time_per_sample.0;
+        }
 
-                    // Skip generation if operator was previously determined to be skippable OR
-                    let skip_condition = !operator_generate_audio[operator_index] || (
-                        // Additive factor for this operator is off AND
-                        operator_additive_zero[operator_index] && (
-                            // Modulation target was previously determined to be skippable OR
-                            !operator_generate_audio[modulation_target] ||
-                            // Modulation target is white noise OR
-                            operator_wave_type[modulation_target] == WaveType::WhiteNoise ||
-                            // Modulation target doesn't do anything with its input modulation
-                            operator_modulation_index_zero[modulation_target]
-                        )
-                    );
+        octasine.processing.global_time = time;
 
-                    if skip_condition {
-                        operator_generate_audio[operator_index] = false;
+        // --- Operator dependency analysis to allow skipping audio generation when possible
+
+        let mut operator_generate_audio = [[true; 4]; VECTOR_WIDTH];
+
+        {
+            let mut operator_additive_zero = [[false; 4]; VECTOR_WIDTH];
+            let mut operator_modulation_index_zero = [[false; 4]; VECTOR_WIDTH];
+
+            for i in 0..VECTOR_WIDTH {
+                for operator_index in 0..4 {
+                    // If volume is off, just set to skippable, don't even bother with lt calculations
+                    if operator_volume[operator_index][i].lt(&ZERO_VALUE_LIMIT){
+                        operator_generate_audio[i][operator_index] = false;
+                    } else {
+                        operator_additive_zero[i][operator_index] =
+                            operator_additive[i][operator_index].lt(&ZERO_VALUE_LIMIT);
+
+                        operator_modulation_index_zero[i][operator_index] =
+                            operator_modulation_index[operator_index][i].lt(&ZERO_VALUE_LIMIT);
+                    }
+                }
+
+                for _ in 0..3 {
+                    for operator_index in 1..4 {
+                        let modulation_target = operator_modulation_targets[operator_index];
+
+                        // Skip generation if operator was previously determined to be skippable OR
+                        let skip_condition = !operator_generate_audio[i][operator_index] || (
+                            // Additive factor for this operator is off AND
+                            operator_additive_zero[i][operator_index] && (
+                                // Modulation target was previously determined to be skippable OR
+                                !operator_generate_audio[i][modulation_target] ||
+                                // Modulation target is white noise OR
+                                operator_wave_type[modulation_target] == WaveType::WhiteNoise ||
+                                // Modulation target doesn't do anything with its input modulation
+                                operator_modulation_index_zero[i][modulation_target]
+                            )
+                        );
+
+                        if skip_condition {
+                            operator_generate_audio[i][operator_index] = false;
+                        }
                     }
                 }
             }
-
-            operator_generate_audio
-        };
-
-        // Necessary for interpolation
-        octasine.processing.global_time.0 += time_per_sample.0 * (SAMPLE_PASS_SIZE as f64);
+        }
 
         // --- Collect voice data (envelope volume, phases) necessary for sound generation
 
@@ -171,15 +204,15 @@ pub unsafe fn process_f32_avx(
 
         for voice in octasine.processing.voices.iter_mut(){
             if voice.active {
-                let mut operator_envelope_volumes = [[0.0f64; SAMPLE_PASS_SIZE]; 4];
-                let mut operator_phases = [[0.0f64; SAMPLE_PASS_SIZE]; 4];
+                let mut operator_envelope_volumes = [[0.0f64; VECTOR_WIDTH]; 4];
+                let mut operator_phases = [[0.0f64; VECTOR_WIDTH]; 4];
 
                 let voice_base_frequency = voice.midi_pitch.get_frequency(
                     octasine.processing.parameters.master_frequency.value
                 );
 
                 // Envelope
-                for i in 0..SAMPLE_PASS_SIZE {
+                for i in 0..VECTOR_WIDTH {
                     for (operator_index, operator) in operators.iter_mut().enumerate(){
                         let v = voice.operators[operator_index].volume_envelope.get_volume(
                             &octasine.processing.log10_table,
@@ -230,11 +263,25 @@ pub unsafe fn process_f32_avx(
 
         // --- Generate samples for all operators and voices
 
-        let mut additive_outputs_left = [0.0f64; SAMPLE_PASS_SIZE];
-        let mut additive_outputs_right = [0.0f64; SAMPLE_PASS_SIZE];
+        let master_volume_factor = _mm256_loadu_pd(&master_volume_factor[0]);
+
+        convert_to_simd!(operator_volume);
+        convert_to_simd!(operator_modulation_index);
+        convert_to_simd!(operator_feedback);
+        convert_to_simd!(operator_panning);
+        convert_to_simd!(operator_additive);
+        convert_to_simd!(operator_constant_power_panning_left);
+        convert_to_simd!(operator_constant_power_panning_right);
+
+        let mut additive_outputs_left = _mm256_setzero_pd();
+        let mut additive_outputs_right = _mm256_setzero_pd();
 
         // Dummy modulation output for operator 0
-        let mut dummy_modulation_out = [0.0f64; SAMPLE_PASS_SIZE];
+        let mut dummy_modulation_out = _mm256_setzero_pd();
+
+        let zero_splat = _mm256_setzero_pd();
+        let two_splat = _mm256_set1_pd(2.0);
+        let zero_point_five_splat = _mm256_set1_pd(0.5);
 
         // FIXME: this was previously used for skipping samples if
         // volume is off, might be useful to put back
@@ -243,8 +290,8 @@ pub unsafe fn process_f32_avx(
         // Voice index here is not the same as in processing storage
         for voice_index in 0..num_active_voices {
             // Voice modulation input storage, indexed by operator
-            let mut voice_modulation_inputs_left = [[0.0f64; SAMPLE_PASS_SIZE]; 4];
-            let mut voice_modulation_inputs_right = [[0.0f64; SAMPLE_PASS_SIZE]; 4];
+            let mut voice_modulation_inputs_left = [_mm256_setzero_pd(); 4];
+            let mut voice_modulation_inputs_right = [_mm256_setzero_pd(); 4];
 
             let key_velocity_splat = _mm256_set1_pd(key_velocities[voice_index]);
 
@@ -252,18 +299,34 @@ pub unsafe fn process_f32_avx(
             for operator_index in 0..4 { // FIXME: better iterator with 3, 2, 1, 0 possible?
                 let operator_index = 3 - operator_index;
 
+                // FIXME
                 // Possibly skip generation based on previous dependency analysis
-                if !operator_generate_audio[operator_index]{
-                    continue;
-                }
+                // if !operator_generate_audio[operator_index]{
+                //     continue;
+                // }
 
                 let operator_modulation_target = operator_modulation_targets[operator_index];
 
                 // Get panning as value between -1 and 1
-                let pan_transformed = 2.0 * (operator_panning[operator_index] - 0.5);
+                let pan_transformed = _mm256_mul_pd(
+                    two_splat,
+                    _mm256_sub_pd(
+                        operator_panning[operator_index],
+                        zero_point_five_splat
+                    )
+                );
 
-                let pan_tendency_right = pan_transformed.max(0.0);
-                let pan_tendency_left = (pan_transformed * -1.0).max(0.0);
+                let pan_tendency_right = _mm256_max_pd(
+                    pan_transformed,
+                    zero_splat
+                );
+                let pan_tendency_left = _mm256_max_pd(
+                    _mm256_mul_pd(
+                        pan_transformed,
+                        _mm256_set1_pd(-1.0) // FIXME - flip sign?
+                    ),
+                    zero_splat
+                );
 
                 if operator_wave_type[operator_index] == WaveType::WhiteNoise {
                     gen_noise_samples_for_voice_operator_channel( // left channel
@@ -278,7 +341,7 @@ pub unsafe fn process_f32_avx(
                         operator_volume[operator_index],
                         operator_additive[operator_index],
 
-                        operators[operator_index].panning.left_and_right[0]
+                        operator_constant_power_panning_left[operator_index]
                     );
                     gen_noise_samples_for_voice_operator_channel( // right channel
                         &octasine.processing.rng,
@@ -292,14 +355,14 @@ pub unsafe fn process_f32_avx(
                         operator_volume[operator_index],
                         operator_additive[operator_index],
 
-                        operators[operator_index].panning.left_and_right[1]
+                        operator_constant_power_panning_right[operator_index]
                     );
                 } else {
                     gen_sin_samples_for_voice_operator_channel( // left channel
                         &mut additive_outputs_left,
                         &mut voice_modulation_inputs_left,
-                        &voice_modulation_inputs_right[operator_index],
-                        &mut dummy_modulation_out[..],
+                        voice_modulation_inputs_right[operator_index],
+                        &mut dummy_modulation_out,
 
                         &voice_envelope_volumes[voice_index][operator_index],
                         &voice_phases[voice_index][operator_index],
@@ -313,13 +376,13 @@ pub unsafe fn process_f32_avx(
                         operator_modulation_index[operator_index],
 
                         pan_tendency_left,
-                        operators[operator_index].panning.left_and_right[0]
+                        operator_constant_power_panning_left[operator_index]
                     );
                     gen_sin_samples_for_voice_operator_channel( // right channel
                         &mut additive_outputs_right,
                         &mut voice_modulation_inputs_right,
-                        &voice_modulation_inputs_left[operator_index],
-                        &mut dummy_modulation_out[..],
+                        voice_modulation_inputs_left[operator_index],
+                        &mut dummy_modulation_out,
 
                         &voice_envelope_volumes[voice_index][operator_index],
                         &voice_phases[voice_index][operator_index],
@@ -333,7 +396,7 @@ pub unsafe fn process_f32_avx(
                         operator_modulation_index[operator_index],
 
                         pan_tendency_right,
-                        operators[operator_index].panning.left_and_right[1]
+                        operator_constant_power_panning_right[operator_index]
                     );
                 }
             } // End of operator iteration
@@ -341,32 +404,25 @@ pub unsafe fn process_f32_avx(
 
         // --- Summed additive outputs: apply master volume and hard limit.
 
-        let master_volume_factor_splat = _mm256_set1_pd(master_volume_factor);
-        let max_volume_splat = _mm256_set1_pd(5.0);
-        let min_volume_splat = _mm256_set1_pd(-5.0);
+        additive_outputs_left = _mm256_mul_pd(master_volume_factor, additive_outputs_left);
+        additive_outputs_right = _mm256_mul_pd(master_volume_factor, additive_outputs_right);
 
-        for chunk in additive_outputs_left.chunks_exact_mut(4).chain(
-            additive_outputs_right.chunks_exact_mut(4)
-        ){
-            let mut outputs = _mm256_loadu_pd(&chunk[0]);
-
-            outputs = _mm256_mul_pd(master_volume_factor_splat, outputs);
-
-            // Hard limit
-            outputs = _mm256_min_pd(max_volume_splat, outputs);
-            outputs = _mm256_max_pd(min_volume_splat, outputs);
-
-            _mm256_storeu_pd(&mut chunk[0], outputs);
-        }
+        additive_outputs_left = hard_limit(additive_outputs_left);
+        additive_outputs_right = hard_limit(additive_outputs_right);
 
         // --- Write additive outputs to audio buffer
+
+        // Converting to f32s and writing directly would be nice..
         
-        // audio_buffer_left_chunk = additive_out_lefts; // would need f32 conversion
-        // audio_buffer_right_chunk = additive_out_rights;
+        let mut tmp_left = [0.0f64; VECTOR_WIDTH];
+        let mut tmp_right = [0.0f64; VECTOR_WIDTH];
+
+        _mm256_storeu_pd(&mut tmp_left[0], additive_outputs_left);
+        _mm256_storeu_pd(&mut tmp_right[0], additive_outputs_right);
         
         for (additive_out_left, additive_out_right, buffer_left, buffer_right) in izip!(
-            additive_outputs_left.iter(),
-            additive_outputs_right.iter(),
+            tmp_left.iter(),
+            tmp_right.iter(),
             audio_buffer_left_chunk.iter_mut(),
             audio_buffer_right_chunk.iter_mut()
         ){
@@ -391,143 +447,105 @@ pub unsafe fn process_f32_avx(
 unsafe fn gen_noise_samples_for_voice_operator_channel(
     rng: &Rng,
 
-    additive_outputs: &mut [f64],
-    modulation_outputs: &mut [f64],
+    additive_outputs: &mut __m256d,
+    modulation_outputs: &mut __m256d,
 
     voice_envelope_volumes: &[f64],
-    key_velocity_splat: __m256d,
+    key_velocity: __m256d,
 
-    operator_volume: f64,
-    operator_additive: f64,
+    operator_volume: __m256d,
+    operator_additive: __m256d,
 
-    constant_power_panning: f64
+    constant_power_panning: __m256d
 ){
     let one_splat = _mm256_set1_pd(1.0);
     let two_splat = _mm256_set1_pd(2.0);
-    let operator_volume_splat = _mm256_set1_pd(operator_volume);
-    let operator_additive_splat = _mm256_set1_pd(operator_additive);
-    let constant_power_panning_splat = _mm256_set1_pd(constant_power_panning);
 
-    let chunks = izip!(
-        additive_outputs.chunks_exact_mut(4),
-        modulation_outputs.chunks_exact_mut(4),
-        voice_envelope_volumes.chunks_exact(4),
+    let samples = gen_noise_samples(
+        rng,
+        one_splat,
+        two_splat
     );
 
-    for (
-        mut additive_out_chunk,
-        mut modulation_out_chunk,
-        envelope_volume_chunk,
-    ) in chunks {
-        let envelope_volume = _mm256_loadu_pd(&envelope_volume_chunk[0]);
-        let volume_product = _mm256_mul_pd(operator_volume_splat, envelope_volume);
+    let envelope_volume = _mm256_loadu_pd(&voice_envelope_volumes[0]);
+    let volume_product = _mm256_mul_pd(operator_volume, envelope_volume);
 
-        let samples = gen_noise_samples(
-            rng,
-            one_splat,
-            two_splat
-        );
-
-        write_samples_to_chunks(
-            volume_product,
-            constant_power_panning_splat,
-            operator_additive_splat,
-            key_velocity_splat,
-            &mut modulation_out_chunk,
-            &mut additive_out_chunk,
-            samples,
-        );
-    }
+    write_samples_to_chunks(
+        volume_product,
+        constant_power_panning,
+        operator_additive,
+        key_velocity,
+        modulation_outputs,
+        additive_outputs,
+        samples,
+    );
 }
 
 
 #[inline]
 #[target_feature(enable = "avx")]
 unsafe fn gen_sin_samples_for_voice_operator_channel(
-    additive_outputs: &mut [f64],
-    voice_modulation_inputs_for_channel: &mut [[f64; SAMPLE_PASS_SIZE]; 4],
-    voice_modulation_inputs_for_other_channel: &[f64],
-    dummy_modulation_out: &mut [f64],
+    additive_outputs: &mut __m256d,
+    voice_modulation_inputs_for_channel: &mut [__m256d; 4],
+    modulation_in_for_other_channel: __m256d,
+    dummy_modulation_out: &mut __m256d,
 
     voice_envelope_volumes: &[f64],
     voice_phases: &[f64],
-    key_velocity_splat: __m256d,
+    key_velocity: __m256d,
 
     operator_index: usize,
-    operator_volume: f64,
-    operator_additive: f64,
+    operator_volume: __m256d,
+    operator_additive: __m256d,
     operator_modulation_target: usize,
-    operator_feedback: f64,
-    operator_modulation_index: f64,
+    operator_feedback: __m256d,
+    operator_modulation_index: __m256d,
 
-    pan_tendency: f64,
-    constant_power_panning: f64
+    pan_tendency: __m256d,
+    constant_power_panning: __m256d
 ){
-    let tau_splat = _mm256_set1_pd(TAU);
-    let one_splat = _mm256_set1_pd(1.0);
-    let operator_volume_splat = _mm256_set1_pd(operator_volume);
-    let operator_additive_splat = _mm256_set1_pd(operator_additive);
-    let operator_feedback_splat = _mm256_set1_pd(operator_feedback);
-    let operator_modulation_index_splat = _mm256_set1_pd(operator_modulation_index);
-    let pan_tendency_splat = _mm256_set1_pd(pan_tendency);
-    let one_minus_pan_tendency_splat = _mm256_sub_pd(one_splat, pan_tendency_splat);
-    let constant_power_panning_splat = _mm256_set1_pd(constant_power_panning);
-
     let (
         voice_modulation_inputs_for_channel_below,
         voice_modulation_inputs_for_channel_above
     ) = voice_modulation_inputs_for_channel.split_at_mut(operator_index);
 
-    let modulation_in_for_channel_chunks = voice_modulation_inputs_for_channel_above[0].chunks_exact(4);
+    let modulation_in_for_channel = voice_modulation_inputs_for_channel_above[0];
 
-    let modulation_out_chunks = if operator_index == 0 {
-        dummy_modulation_out.chunks_exact_mut(4)
+    let modulation_out = if operator_index == 0 {
+        dummy_modulation_out
     } else {
-        voice_modulation_inputs_for_channel_below[operator_modulation_target].chunks_exact_mut(4)
+        &mut voice_modulation_inputs_for_channel_below[operator_modulation_target]
     };
 
-    for (
-        mut additive_out_chunk,
-        mut modulation_out_chunk,
-        modulation_in_for_channel_chunk,
-        modulation_in_for_other_channel_chunk,
-        envelope_volume_chunk,
-        voice_phase_chunk
-    ) in izip!(
-        additive_outputs.chunks_exact_mut(4),
-        modulation_out_chunks,
-        modulation_in_for_channel_chunks,
-        voice_modulation_inputs_for_other_channel.chunks_exact(4),
-        voice_envelope_volumes.chunks_exact(4),
-        voice_phases.chunks_exact(4),
-    ){
-        let envelope_volume = _mm256_loadu_pd(&envelope_volume_chunk[0]);
-        let volume_product = _mm256_mul_pd(operator_volume_splat, envelope_volume);
-        let voice_phases = _mm256_loadu_pd(&voice_phase_chunk[0]);
-        let modulation_in_for_channel = _mm256_loadu_pd(&modulation_in_for_channel_chunk[0]);
-        let modulation_in_for_other_channel = _mm256_loadu_pd(&modulation_in_for_other_channel_chunk[0]);
+    let voice_phases = _mm256_loadu_pd(&voice_phases[0]);
+    let envelope_volume = _mm256_loadu_pd(&voice_envelope_volumes[0]);
 
-        let samples = gen_sin_samples(
-            tau_splat,
-            voice_phases,
-            modulation_in_for_channel,
-            modulation_in_for_other_channel,
-            pan_tendency_splat,
-            one_minus_pan_tendency_splat,
-            operator_feedback_splat,
-            operator_modulation_index_splat,
-        );
+    let tau_splat = _mm256_set1_pd(TAU);
+    let one_splat = _mm256_set1_pd(1.0);
 
-        write_samples_to_chunks(
-            volume_product,
-            constant_power_panning_splat,
-            operator_additive_splat,
-            key_velocity_splat,
-            &mut modulation_out_chunk,
-            &mut additive_out_chunk,
-            samples,
-        );
-    }
+    let one_minus_pan_tendency = _mm256_sub_pd(one_splat, pan_tendency);
+    let volume_product = _mm256_mul_pd(operator_volume, envelope_volume);
+
+    let samples = gen_sin_samples(
+        tau_splat,
+        voice_phases,
+        modulation_in_for_channel,
+        modulation_in_for_other_channel,
+        pan_tendency,
+        one_minus_pan_tendency,
+        operator_feedback,
+        operator_modulation_index,
+    );
+
+    write_samples_to_chunks(
+        volume_product,
+        constant_power_panning,
+        operator_additive,
+        key_velocity,
+        modulation_out,
+        additive_outputs,
+        samples,
+    );
 
     #[cfg(feature = "with-coz")]
     coz::progress!();
@@ -606,23 +624,35 @@ unsafe fn write_samples_to_chunks(
     constant_power_panning: __m256d,
     operator_additive_splat: __m256d,
     key_velocity_splat: __m256d,
-    modulation_out_chunk: &mut [f64],
-    additive_out_chunk: &mut [f64],
+    modulation_out_chunk: &mut __m256d, // FIXME: return instead
+    additive_out_chunk: &mut __m256d, // FIXME: return instead
     sample: __m256d,
 ){
     let sample_adjusted = _mm256_mul_pd(sample, _mm256_mul_pd(volume_product, constant_power_panning));
     let new_additive_out = _mm256_mul_pd(sample_adjusted, operator_additive_splat);
     let new_modulation_out = _mm256_sub_pd(sample_adjusted, new_additive_out);
 
-    let modulation_out_sum = _mm256_add_pd(
-        _mm256_loadu_pd(&modulation_out_chunk[0]),
+
+    *modulation_out_chunk = _mm256_add_pd(
+        *modulation_out_chunk,
         new_modulation_out
     );
-    _mm256_storeu_pd(&mut modulation_out_chunk[0], modulation_out_sum);
 
-    let additive_out_sum = _mm256_add_pd(
-        _mm256_loadu_pd(&additive_out_chunk[0]),
+    *additive_out_chunk = _mm256_add_pd(
+        *additive_out_chunk,
         _mm256_mul_pd(new_additive_out, key_velocity_splat)
     );
-    _mm256_storeu_pd(&mut additive_out_chunk[0], additive_out_sum);
+}
+
+
+#[inline]
+#[target_feature(enable = "avx")]
+unsafe fn hard_limit(samples: __m256d) -> __m256d {
+    let max_volume_splat = _mm256_set1_pd(5.0);
+    let min_volume_splat = _mm256_set1_pd(-5.0);
+
+    let samples = _mm256_min_pd(max_volume_splat, samples);
+    let samples = _mm256_max_pd(min_volume_splat, samples);
+
+    samples
 }
