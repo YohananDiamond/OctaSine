@@ -45,8 +45,8 @@ pub unsafe fn process_f32_avx(
     audio_buffer: &mut AudioBuffer<f32>
 ){
     // Per-pass voice data. Indexing: 128 voices, 4 operators
-    let mut voice_envelope_volumes: ArrayVec<[[[f64; VECTOR_WIDTH]; 4]; 128]> = ArrayVec::new();
-    let mut voice_phases: ArrayVec<[[[f64; VECTOR_WIDTH]; 4]; 128]> = ArrayVec::new();
+    let mut voice_envelope_volumes: ArrayVec<[[__m256d; 4]; 128]> = ArrayVec::new();
+    let mut voice_phases: ArrayVec<[[__m256d; 4]; 128]> = ArrayVec::new();
     let mut key_velocities: ArrayVec<[f64; 128]> = ArrayVec::new();
 
     let mut audio_buffer_outputs = audio_buffer.split().1;
@@ -251,8 +251,12 @@ pub unsafe fn process_f32_avx(
                     voice.operators[operator_index].last_phase.0 = new_phase;
                 }
 
+                convert_to_simd!(operator_envelope_volumes);
                 voice_envelope_volumes.push(operator_envelope_volumes);
+
+                convert_to_simd!(operator_phases);
                 voice_phases.push(operator_phases);
+
                 key_velocities.push(voice.key_velocity.0);
 
                 voice.deactivate_if_envelopes_ended();
@@ -335,7 +339,7 @@ pub unsafe fn process_f32_avx(
                         &mut additive_outputs_left,
                         &mut voice_modulation_inputs_left[operator_modulation_target],
 
-                        &voice_envelope_volumes[voice_index][operator_index],
+                        voice_envelope_volumes[voice_index][operator_index],
                         key_velocity_splat,
 
                         operator_volume[operator_index],
@@ -349,7 +353,7 @@ pub unsafe fn process_f32_avx(
                         &mut additive_outputs_right,
                         &mut voice_modulation_inputs_right[operator_modulation_target],
 
-                        &voice_envelope_volumes[voice_index][operator_index],
+                        voice_envelope_volumes[voice_index][operator_index],
                         key_velocity_splat,
 
                         operator_volume[operator_index],
@@ -364,8 +368,8 @@ pub unsafe fn process_f32_avx(
                         voice_modulation_inputs_right[operator_index],
                         &mut dummy_modulation_out,
 
-                        &voice_envelope_volumes[voice_index][operator_index],
-                        &voice_phases[voice_index][operator_index],
+                        voice_envelope_volumes[voice_index][operator_index],
+                        voice_phases[voice_index][operator_index],
                         key_velocity_splat,
 
                         operator_index,
@@ -384,8 +388,8 @@ pub unsafe fn process_f32_avx(
                         voice_modulation_inputs_left[operator_index],
                         &mut dummy_modulation_out,
 
-                        &voice_envelope_volumes[voice_index][operator_index],
-                        &voice_phases[voice_index][operator_index],
+                        voice_envelope_volumes[voice_index][operator_index],
+                        voice_phases[voice_index][operator_index],
                         key_velocity_splat,
 
                         operator_index,
@@ -450,7 +454,7 @@ unsafe fn gen_noise_samples_for_voice_operator_channel(
     additive_outputs: &mut __m256d,
     modulation_outputs: &mut __m256d,
 
-    voice_envelope_volumes: &[f64],
+    envelope_volume: __m256d,
     key_velocity: __m256d,
 
     operator_volume: __m256d,
@@ -467,7 +471,6 @@ unsafe fn gen_noise_samples_for_voice_operator_channel(
         two_splat
     );
 
-    let envelope_volume = _mm256_loadu_pd(&voice_envelope_volumes[0]);
     let volume_product = _mm256_mul_pd(operator_volume, envelope_volume);
 
     write_samples_to_outputs(
@@ -490,8 +493,8 @@ unsafe fn gen_sin_samples_for_voice_operator_channel(
     modulation_in_for_other_channel: __m256d,
     dummy_modulation_out: &mut __m256d,
 
-    voice_envelope_volumes: &[f64],
-    voice_phases: &[f64],
+    envelope_volume: __m256d,
+    voice_phases: __m256d,
     key_velocity: __m256d,
 
     operator_index: usize,
@@ -516,9 +519,6 @@ unsafe fn gen_sin_samples_for_voice_operator_channel(
     } else {
         &mut voice_modulation_inputs_for_channel_below[operator_modulation_target]
     };
-
-    let voice_phases = _mm256_loadu_pd(&voice_phases[0]);
-    let envelope_volume = _mm256_loadu_pd(&voice_envelope_volumes[0]);
 
     let tau_splat = _mm256_set1_pd(TAU);
     let one_splat = _mm256_set1_pd(1.0);
