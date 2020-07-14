@@ -217,66 +217,68 @@ pub unsafe fn process_f32_avx(
         let mut num_active_voices = 0;
 
         for voice in octasine.processing.voices.iter_mut(){
-            if voice.active {
-                let mut operator_envelope_volumes = [[0.0f64; VECTOR_WIDTH]; 4];
-                let mut operator_phases = [[0.0f64; VECTOR_WIDTH]; 4];
-
-                let voice_base_frequency = voice.midi_pitch.get_frequency(
-                    octasine.processing.parameters.master_frequency.value
-                );
-
-                // Envelope
-                for i in 0..VECTOR_WIDTH {
-                    for (operator_index, operator) in operators.iter_mut().enumerate(){
-                        let v = voice.operators[operator_index].volume_envelope.get_volume(
-                            &octasine.processing.log10_table,
-                            &operator.volume_envelope,
-                            voice.key_pressed,
-                            voice.duration
-                        );
-
-                        operator_envelope_volumes[operator_index][i] = v;
-                    }
-
-                    voice.duration.0 += time_per_sample.0;
-                }
-
-                // Phase
-                for (operator_index, phases) in operator_phases.iter_mut()
-                    .enumerate()
-                {
-                    let last_phase = voice.operators[operator_index].last_phase.0;
-                    let frequency = voice_base_frequency *
-                        operator_frequency_modifiers[operator_index];
-                    let phase_addition = frequency * time_per_sample.0;
-
-                    let mut new_phase = 0.0;
-
-                    for (i, p) in phases.iter_mut().enumerate(){
-                        // Do multiplication instead of successive addition
-                        // for less precision loss (hopefully)
-                        new_phase = last_phase +
-                            phase_addition * ((i + 1) as f64);
-
-                        *p = new_phase;
-                    }
-
-                    // Save phase
-                    voice.operators[operator_index].last_phase.0 = new_phase;
-                }
-
-                convert_to_simd!(operator_envelope_volumes);
-                voice_envelope_volumes.push(operator_envelope_volumes);
-
-                convert_to_simd!(operator_phases);
-                voice_phases.push(operator_phases);
-
-                key_velocities.push(voice.key_velocity.0);
-
-                voice.deactivate_if_envelopes_ended();
-
-                num_active_voices += 1;
+            if !voice.active {
+                continue;
             }
+
+            let mut operator_envelope_volumes = [[0.0f64; VECTOR_WIDTH]; 4];
+            let mut operator_phases = [[0.0f64; VECTOR_WIDTH]; 4];
+
+            let voice_base_frequency = voice.midi_pitch.get_frequency(
+                octasine.processing.parameters.master_frequency.value
+            );
+
+            // Envelope
+            for i in 0..VECTOR_WIDTH {
+                for (operator_index, operator) in operators.iter_mut().enumerate(){
+                    let v = voice.operators[operator_index].volume_envelope.get_volume(
+                        &octasine.processing.log10_table,
+                        &operator.volume_envelope,
+                        voice.key_pressed,
+                        voice.duration
+                    );
+
+                    operator_envelope_volumes[operator_index][i] = v;
+                }
+
+                voice.duration.0 += time_per_sample.0;
+            }
+
+            // Phase
+            for (operator_index, phases) in operator_phases.iter_mut()
+                .enumerate()
+            {
+                let last_phase = voice.operators[operator_index].last_phase.0;
+                let frequency = voice_base_frequency *
+                    operator_frequency_modifiers[operator_index];
+                let phase_addition = frequency * time_per_sample.0;
+
+                let mut new_phase = 0.0;
+
+                for (i, p) in phases.iter_mut().enumerate(){
+                    // Do multiplication instead of successive addition
+                    // for less precision loss (hopefully)
+                    new_phase = last_phase +
+                        phase_addition * ((i + 1) as f64);
+
+                    *p = new_phase;
+                }
+
+                // Save phase
+                voice.operators[operator_index].last_phase.0 = new_phase;
+            }
+
+            convert_to_simd!(operator_envelope_volumes);
+            voice_envelope_volumes.push(operator_envelope_volumes);
+
+            convert_to_simd!(operator_phases);
+            voice_phases.push(operator_phases);
+
+            key_velocities.push(voice.key_velocity.0);
+
+            voice.deactivate_if_envelopes_ended();
+
+            num_active_voices += 1;
         }
 
         // --- Generate samples for all operators and voices
