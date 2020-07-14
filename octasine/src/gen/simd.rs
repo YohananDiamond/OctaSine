@@ -128,6 +128,8 @@ pub unsafe fn process_f32_avx(
                 operator_feedback[operator_index][i] = operator.feedback.get_value(time);
                 operator_panning[operator_index][i] = operator.panning.get_value(time);
 
+                // These are calculated when running
+                // operator.panning.get_value()
                 operator_constant_power_panning_left[operator_index][i] =
                     operator.panning.left_and_right[0];
                 operator_constant_power_panning_right[operator_index][i] =
