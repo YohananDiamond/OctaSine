@@ -1,8 +1,10 @@
 # TODO
 
-- does skipping based dependency analysis change sound?
-- phase: avoid multiplication trick for "less precision", probably not true
-  any more
+- does skipping based dependency analysis change sound? and does audio sound
+  ok now that parameter changes are picked up more often and parameter
+  interpolation is done for each sample?
+- phase: avoid multiplication trick for "less precision", since it probably
+  doesn't work any more
 
 ## Performance
 
@@ -11,11 +13,7 @@
   - more realistic benchmark? with more variation over iterations,
     include noise gen, possibly slower changes?
 - avx audio gen
-  - write directly into left and right output buffers? sample iteration would
-    need to be in shape of [l, l, l, l, r, r, r, r] then
   - think about doing phase calculation closer to where data is used
-  - interpolation for processing parameters every sample? Build long arrays
-    here too?
 
 ## Other
 

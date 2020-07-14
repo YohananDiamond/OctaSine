@@ -79,7 +79,7 @@ pub unsafe fn process_f32_avx(
         let operators = &mut octasine.processing.parameters.operators;
         let time_per_sample = octasine.processing.time_per_sample;
         
-        // -- Fetch non-interpolated values
+        // --- Fetch non-interpolated values
 
         let mut operator_wave_type = [WaveType::Sine; 4];
         let mut operator_frequency_modifiers = [0.0f64; 4]; 
@@ -105,7 +105,7 @@ pub unsafe fn process_f32_avx(
             }
         }
 
-        // -- Fetch interpolated values
+        // --- Fetch interpolated values
 
         let mut master_volume_factor = [0.0f64; VECTOR_WIDTH];
         let mut operator_volume = [[0.0f64; VECTOR_WIDTH]; 4];
