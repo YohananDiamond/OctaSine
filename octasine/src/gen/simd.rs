@@ -284,8 +284,9 @@ pub unsafe fn process_f32_avx(
         let mut dummy_modulation_out = _mm256_setzero_pd();
 
         let zero_splat = _mm256_setzero_pd();
-        let two_splat = _mm256_set1_pd(2.0);
         let zero_point_five_splat = _mm256_set1_pd(0.5);
+        let one_splat = _mm256_set1_pd(1.0);
+        let two_splat = _mm256_set1_pd(2.0);
 
         // FIXME: this was previously used for skipping samples if
         // volume is off, might be useful to put back
@@ -325,41 +326,51 @@ pub unsafe fn process_f32_avx(
                     zero_splat
                 );
                 let pan_tendency_left = _mm256_max_pd(
-                    _mm256_mul_pd(
+                    _mm256_mul_pd( // FIXME - flip sign bit instead?
                         pan_transformed,
-                        _mm256_set1_pd(-1.0) // FIXME - flip sign?
+                        _mm256_set1_pd(-1.0)
                     ),
                     zero_splat
                 );
 
                 if operator_wave_type[operator_index] == WaveType::WhiteNoise {
-                    gen_noise_samples_for_voice_operator_channel( // left channel
-                        &octasine.processing.rng,
+                    let rng: &Rng = &octasine.processing.rng;
 
-                        &mut additive_outputs_left,
-                        &mut voice_modulation_inputs_left[operator_modulation_target],
-
-                        voice_envelope_volumes[voice_index][operator_index],
-                        key_velocity_splat,
-
-                        operator_volume[operator_index],
-                        operator_additive[operator_index],
-
-                        operator_constant_power_panning_left[operator_index]
+                    let mut samples = _mm256_set_pd(
+                        rng.f64(),
+                        rng.f64(),
+                        rng.f64(),
+                        rng.f64(),
                     );
-                    gen_noise_samples_for_voice_operator_channel( // right channel
-                        &octasine.processing.rng,
 
-                        &mut additive_outputs_right,
-                        &mut voice_modulation_inputs_right[operator_modulation_target],
+                    samples = _mm256_sub_pd(samples, one_splat);
+                    samples = _mm256_mul_pd(samples, two_splat);
 
-                        voice_envelope_volumes[voice_index][operator_index],
-                        key_velocity_splat,
-
+                    let volume_product = _mm256_mul_pd(
                         operator_volume[operator_index],
-                        operator_additive[operator_index],
+                        voice_envelope_volumes[voice_index][operator_index]
+                    );
 
-                        operator_constant_power_panning_right[operator_index]
+                    // Left channel
+                    write_samples_to_outputs(
+                        volume_product,
+                        operator_constant_power_panning_left[operator_index],
+                        operator_additive[operator_index],
+                        key_velocity_splat,
+                        &mut voice_modulation_inputs_left[operator_modulation_target],
+                        &mut additive_outputs_left,
+                        samples,
+                    );
+
+                    // Right channel
+                    write_samples_to_outputs(
+                        volume_product,
+                        operator_constant_power_panning_right[operator_index],
+                        operator_additive[operator_index],
+                        key_velocity_splat,
+                        &mut voice_modulation_inputs_right[operator_modulation_target],
+                        &mut additive_outputs_right,
+                        samples,
                     );
                 } else {
                     gen_sin_samples_for_voice_operator_channel( // left channel
@@ -443,45 +454,6 @@ pub unsafe fn process_f32_avx(
         #[cfg(feature = "with-coz")]
         coz::progress!();
     } // End of pass iteration
-}
-
-
-#[inline]
-#[target_feature(enable = "avx")]
-unsafe fn gen_noise_samples_for_voice_operator_channel(
-    rng: &Rng,
-
-    additive_outputs: &mut __m256d,
-    modulation_outputs: &mut __m256d,
-
-    envelope_volume: __m256d,
-    key_velocity: __m256d,
-
-    operator_volume: __m256d,
-    operator_additive: __m256d,
-
-    constant_power_panning: __m256d
-){
-    let one_splat = _mm256_set1_pd(1.0);
-    let two_splat = _mm256_set1_pd(2.0);
-
-    let samples = gen_noise_samples(
-        rng,
-        one_splat,
-        two_splat
-    );
-
-    let volume_product = _mm256_mul_pd(operator_volume, envelope_volume);
-
-    write_samples_to_outputs(
-        volume_product,
-        constant_power_panning,
-        operator_additive,
-        key_velocity,
-        modulation_outputs,
-        additive_outputs,
-        samples,
-    );
 }
 
 
@@ -590,30 +562,6 @@ unsafe fn gen_sin_samples(
     );
 
     Sleef_sind4_u35(sin_input)
-}
-
-
-#[inline]
-#[target_feature(enable = "avx")]
-unsafe fn gen_noise_samples(
-    rng: &Rng,
-    one_splat: __m256d,
-    two_splat: __m256d,
-) -> __m256d {
-    let random_1 = rng.f64();
-    let random_2 = rng.f64();
-
-    let mut samples = _mm256_set_pd(
-        random_1,
-        random_1,
-        random_2,
-        random_2
-    );
-
-    samples = _mm256_sub_pd(samples, one_splat);
-    samples = _mm256_mul_pd(samples, two_splat);
-
-    samples
 }
 
 
