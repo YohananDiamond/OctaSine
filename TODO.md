@@ -3,12 +3,15 @@
 - does skipping based dependency analysis change sound? and does audio sound
   ok now that parameter changes are picked up more often and parameter
   interpolation is done for each sample?
-- phase: avoid multiplication trick for "less precision", since it probably
-  doesn't work any more
+- operator_index = 3 - operator_index: this might destroy compiler
+  optimizations
 - dependency analysis: simplify / optimize for new code structure, also move
   to own function
 - voice envelope and phase calculation could maybe be moved to own function
 - think about doing phase calculation closer to where data is used??
+- phase: avoid multiplication trick for "less precision", since it probably
+  doesn't work any more
+- premature optimization: write simd rng
 
 ## Performance
 
@@ -46,3 +49,8 @@ very relevant results. It did recommend speeding up voice generation in
 general (likely envelope generation), but this was already known. It also
 pointed out on line in the fallback audio gen that might be interesting. I
 added a comment to it, but it's very low priority.
+
+## Don't do
+
+- convert_to_simd macro creates simd vars, then writes to memory, and this
+  is likely counterproductive, don't do this (note: doesn't help)
