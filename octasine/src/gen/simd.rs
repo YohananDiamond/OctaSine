@@ -18,11 +18,6 @@ use crate::constants::*;
 use crate::processing_parameters::*;
 
 
-// /// Each SAMPLE_PASS_SIZE samples, load parameter changes and processing
-// /// parameter values (interpolated values where applicable)
-// const SAMPLE_PASS_SIZE: usize = 32;
-
-
 const VECTOR_WIDTH: usize = 4;
 
 
@@ -36,7 +31,6 @@ macro_rules! convert_to_simd {
         ];
     };
 }
-
 
 
 #[target_feature(enable = "avx")]
