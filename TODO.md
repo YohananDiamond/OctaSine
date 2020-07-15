@@ -52,5 +52,9 @@ added a comment to it, but it's very low priority.
 
 ## Don't do
 
-- convert_to_simd macro creates simd vars, then writes to memory, and this
-  is likely counterproductive, don't do this (note: doesn't help)
+- avx sound gen:
+  - convert_to_simd macro creates simd vars, then writes to memory, and this
+    is likely counterproductive, don't do this (note: doesn't help)
+  - iterate over calculated voice vars with izip - no difference, also not when
+    they are in simple arrays
+  - avx sound gen - get_unchecked and push_unchecked doesn't seem to help
