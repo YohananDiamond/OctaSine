@@ -1,24 +1,28 @@
 # TODO
 
+## Audio gen
+
 - does skipping based dependency analysis change sound? and does audio sound
   ok now that parameter changes are picked up more often and parameter
   interpolation is done for each sample?
-- operator_index = 3 - operator_index: this might destroy compiler
-  optimizations
-- dependency analysis: simplify / optimize for new code structure, also move
-  to own function
+- test if envelope volume is off, then skip gen. Can be done in same branch
+  as dependency analysis check
+- dependency analysis: simplify / optimize for new code structure
+
+### Less important
+
+- test if using 32-align and using aligned loads helps performance
 - voice envelope and phase calculation could maybe be moved to own function
 - think about doing phase calculation closer to where data is used??
 - phase: avoid multiplication trick for "less precision", since it probably
   doesn't work any more
+- bench-process ergonomics improvement: command line argument for number of
+  iterations
+- more realistic benchmark? with more variation over iterations,
+  include noise gen, possibly slower changes?
+- do something about operator_index = 3 - operator_index, which might destroy
+  compiler optimizations. using .rev() doesn't seem to help
 - premature optimization: write simd rng
-
-## Performance
-
-- bench-process
-  - ergonomics improvement: command line argument for number of iterations
-  - more realistic benchmark? with more variation over iterations,
-    include noise gen, possibly slower changes?
 
 ## Other
 
@@ -50,7 +54,7 @@ general (likely envelope generation), but this was already known. It also
 pointed out on line in the fallback audio gen that might be interesting. I
 added a comment to it, but it's very low priority.
 
-## Don't do
+## Optimization stuff that didn't help
 
 - avx sound gen:
   - convert_to_simd macro creates simd vars, then writes to memory, and this
