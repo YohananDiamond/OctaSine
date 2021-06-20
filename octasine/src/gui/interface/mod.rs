@@ -353,7 +353,7 @@ impl <H: GuiSyncHandle>Application for OctaSineIcedApplication<H> {
         renderer::Settings {
             default_font: Some(FONT_REGULAR),
             default_text_size: FONT_SIZE,
-            antialiasing: Some(renderer::Antialiasing::MSAAx4),
+            antialiasing: None,
             ..Default::default()
         }
     }
