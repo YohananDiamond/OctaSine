@@ -1221,7 +1221,7 @@ dependencies = [
 [[package]]
 name = "iced_baseview"
 version = "0.0.1"
-source = "git+https://github.com/greatest-ape/iced_baseview.git?branch=iced_master#f6c3835ced0bbb87b1a5c05b8e61edb4c8b41396"
+source = "git+https://github.com/greatest-ape/iced_baseview.git?branch=iced_git#f6c3835ced0bbb87b1a5c05b8e61edb4c8b41396"
 dependencies = [
  "baseview",
  "iced_core 0.4.0 (git+https://github.com/hecrj/iced?branch=master)",

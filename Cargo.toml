@@ -12,7 +12,7 @@ members = [
 
 # Use iced master branch
 [patch.'https://github.com/BillyDM/iced_baseview']
-iced_baseview = { git = "https://github.com/greatest-ape/iced_baseview.git", branch = "iced_master" }
+iced_baseview = { git = "https://github.com/greatest-ape/iced_baseview.git", branch = "iced_git" }
 
 # Don't take keyboard input. Ignoring keyboard input will hopefully
 # work with future releases of baseview/iced_baseview/iced, but until
