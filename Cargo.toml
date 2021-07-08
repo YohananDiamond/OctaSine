@@ -11,6 +11,10 @@ members = [
 # baseview = { path = "../baseview" }
 
 # Use iced master branch
+[patch.'https://github.com/iced-rs/iced_audio']
+iced_audio = { git = "https://github.com/greatest-ape/iced_audio.git", branch = "iced_git" }
+
+# Use iced master branch
 [patch.'https://github.com/BillyDM/iced_baseview']
 iced_baseview = { git = "https://github.com/greatest-ape/iced_baseview.git", branch = "iced_master" }
 
