@@ -1214,20 +1214,20 @@ name = "iced_audio"
 version = "0.6.1"
 source = "git+https://github.com/greatest-ape/iced_audio.git?branch=iced_git#053ef46eca70818c9e6bf498f1149ed45a34b36a"
 dependencies = [
- "iced_graphics 0.2.0 (git+https://github.com/hecrj/iced?branch=master)",
- "iced_native 0.4.0 (git+https://github.com/hecrj/iced?branch=master)",
+ "iced_graphics",
+ "iced_native",
 ]
 
 [[package]]
 name = "iced_baseview"
 version = "0.0.1"
-source = "git+https://github.com/greatest-ape/iced_baseview.git?branch=iced_master#4eca5f87cac8ec030f8416d245e0b1765de05d03"
+source = "git+https://github.com/greatest-ape/iced_baseview.git?branch=iced_master#f6c3835ced0bbb87b1a5c05b8e61edb4c8b41396"
 dependencies = [
  "baseview",
- "iced_core 0.4.0 (git+https://github.com/hecrj/iced.git)",
- "iced_futures 0.3.0 (git+https://github.com/hecrj/iced.git)",
- "iced_graphics 0.2.0 (git+https://github.com/hecrj/iced.git)",
- "iced_native 0.4.0 (git+https://github.com/hecrj/iced.git)",
+ "iced_core 0.4.0 (git+https://github.com/hecrj/iced?branch=master)",
+ "iced_futures",
+ "iced_graphics",
+ "iced_native",
  "iced_wgpu",
  "keyboard-types",
  "raw-window-handle",
@@ -1243,11 +1243,6 @@ checksum = "fafe4a5eeee85876f3bad347338456e0f3e7fcdc2381a5ce6c3ba2a60dd769bf"
 name = "iced_core"
 version = "0.4.0"
 source = "git+https://github.com/hecrj/iced?branch=master#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
-
-[[package]]
-name = "iced_core"
-version = "0.4.0"
-source = "git+https://github.com/hecrj/iced.git#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
 dependencies = [
  "palette",
 ]
@@ -1263,39 +1258,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "iced_futures"
-version = "0.3.0"
-source = "git+https://github.com/hecrj/iced.git#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
-dependencies = [
- "futures",
- "log",
- "wasm-bindgen-futures",
-]
-
-[[package]]
 name = "iced_graphics"
 version = "0.2.0"
 source = "git+https://github.com/hecrj/iced?branch=master#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
 dependencies = [
  "bytemuck",
- "glam",
- "iced_native 0.4.0 (git+https://github.com/hecrj/iced?branch=master)",
- "iced_style 0.3.0 (git+https://github.com/hecrj/iced?branch=master)",
- "lyon",
- "raw-window-handle",
- "thiserror",
-]
-
-[[package]]
-name = "iced_graphics"
-version = "0.2.0"
-source = "git+https://github.com/hecrj/iced.git#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
-dependencies = [
- "bytemuck",
  "font-kit",
  "glam",
- "iced_native 0.4.0 (git+https://github.com/hecrj/iced.git)",
- "iced_style 0.3.0 (git+https://github.com/hecrj/iced.git)",
+ "iced_native",
+ "iced_style 0.3.0 (git+https://github.com/hecrj/iced?branch=master)",
  "lyon",
  "raw-window-handle",
  "thiserror",
@@ -1307,19 +1278,7 @@ version = "0.4.0"
 source = "git+https://github.com/hecrj/iced?branch=master#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
 dependencies = [
  "iced_core 0.4.0 (git+https://github.com/hecrj/iced?branch=master)",
- "iced_futures 0.3.0 (git+https://github.com/hecrj/iced?branch=master)",
- "num-traits",
- "twox-hash",
- "unicode-segmentation",
-]
-
-[[package]]
-name = "iced_native"
-version = "0.4.0"
-source = "git+https://github.com/hecrj/iced.git#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
-dependencies = [
- "iced_core 0.4.0 (git+https://github.com/hecrj/iced.git)",
- "iced_futures 0.3.0 (git+https://github.com/hecrj/iced.git)",
+ "iced_futures",
  "num-traits",
  "twox-hash",
  "unicode-segmentation",
@@ -1343,24 +1302,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "iced_style"
-version = "0.3.0"
-source = "git+https://github.com/hecrj/iced.git#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
-dependencies = [
- "iced_core 0.4.0 (git+https://github.com/hecrj/iced.git)",
-]
-
-[[package]]
 name = "iced_wgpu"
 version = "0.4.0"
-source = "git+https://github.com/hecrj/iced.git#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
+source = "git+https://github.com/hecrj/iced?branch=master#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
 dependencies = [
  "bytemuck",
  "futures",
  "glyph_brush",
  "guillotiere",
- "iced_graphics 0.2.0 (git+https://github.com/hecrj/iced.git)",
- "iced_native 0.4.0 (git+https://github.com/hecrj/iced.git)",
+ "iced_graphics",
+ "iced_native",
  "log",
  "raw-window-handle",
  "wgpu",

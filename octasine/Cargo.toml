@@ -59,7 +59,7 @@ version = "0.3"
 optional = true
 
 [dependencies.iced_audio]
-git = "https://github.com/iced-rs/iced_audio.git"
+git = "https://github.com/greatest-ape/iced_audio.git"
 branch = "iced_git"
 optional = true
 
