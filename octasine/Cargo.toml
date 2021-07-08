@@ -55,7 +55,8 @@ features = ["canvas", "palette"]
 optional = true
 
 [dependencies.iced_style]
-version = "0.3"
+git = "https://github.com/hecrj/iced.git"
+branch = "master"
 optional = true
 
 [dependencies.iced_audio]

@@ -1224,7 +1224,7 @@ version = "0.0.1"
 source = "git+https://github.com/greatest-ape/iced_baseview.git?branch=iced_git#f6c3835ced0bbb87b1a5c05b8e61edb4c8b41396"
 dependencies = [
  "baseview",
- "iced_core 0.4.0 (git+https://github.com/hecrj/iced?branch=master)",
+ "iced_core",
  "iced_futures",
  "iced_graphics",
  "iced_native",
@@ -1232,12 +1232,6 @@ dependencies = [
  "keyboard-types",
  "raw-window-handle",
 ]
-
-[[package]]
-name = "iced_core"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fafe4a5eeee85876f3bad347338456e0f3e7fcdc2381a5ce6c3ba2a60dd769bf"
 
 [[package]]
 name = "iced_core"
@@ -1266,7 +1260,7 @@ dependencies = [
  "font-kit",
  "glam",
  "iced_native",
- "iced_style 0.3.0 (git+https://github.com/hecrj/iced?branch=master)",
+ "iced_style",
  "lyon",
  "raw-window-handle",
  "thiserror",
@@ -1277,7 +1271,7 @@ name = "iced_native"
 version = "0.4.0"
 source = "git+https://github.com/hecrj/iced?branch=master#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
 dependencies = [
- "iced_core 0.4.0 (git+https://github.com/hecrj/iced?branch=master)",
+ "iced_core",
  "iced_futures",
  "num-traits",
  "twox-hash",
@@ -1287,18 +1281,9 @@ dependencies = [
 [[package]]
 name = "iced_style"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca93066a80759bfb31f2900d45ca4cf7500b88611607da5e380143badfcd7837"
-dependencies = [
- "iced_core 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "iced_style"
-version = "0.3.0"
 source = "git+https://github.com/hecrj/iced?branch=master#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
 dependencies = [
- "iced_core 0.4.0 (git+https://github.com/hecrj/iced?branch=master)",
+ "iced_core",
 ]
 
 [[package]]
@@ -1677,7 +1662,7 @@ dependencies = [
  "git-testament",
  "iced_audio",
  "iced_baseview",
- "iced_style 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "iced_style",
  "log",
  "log-panics",
  "os_info",
