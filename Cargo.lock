@@ -1211,11 +1211,11 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "iced_audio"
-version = "0.7.0"
-source = "git+https://github.com/BillyDM/iced_audio.git?branch=main#3d5d74efeac0e25475eeb0571ddb5e21519104b5"
+version = "0.6.1"
+source = "git+https://github.com/iced-rs/iced_audio.git?branch=iced_git#52a95fd935f542a462a2f53ab9b09a2b69c71e5c"
 dependencies = [
- "iced_graphics 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "iced_native 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "iced_graphics 0.2.0 (git+https://github.com/hecrj/iced?branch=master)",
+ "iced_native 0.4.0 (git+https://github.com/hecrj/iced?branch=master)",
 ]
 
 [[package]]
@@ -1242,6 +1242,11 @@ checksum = "fafe4a5eeee85876f3bad347338456e0f3e7fcdc2381a5ce6c3ba2a60dd769bf"
 [[package]]
 name = "iced_core"
 version = "0.4.0"
+source = "git+https://github.com/hecrj/iced?branch=master#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
+
+[[package]]
+name = "iced_core"
+version = "0.4.0"
 source = "git+https://github.com/hecrj/iced.git#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
 dependencies = [
  "palette",
@@ -1250,8 +1255,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a89fdde2cb9c5807d23f40230297122e480428c660ad7d0373e625cd0725afa1"
+source = "git+https://github.com/hecrj/iced?branch=master#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
 dependencies = [
  "futures",
  "log",
@@ -1271,13 +1275,12 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7e977de2685d4c0671e6d4b6cab5edab432295507552a746cdb759c0a8dc1f5"
+source = "git+https://github.com/hecrj/iced?branch=master#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
 dependencies = [
  "bytemuck",
  "glam",
- "iced_native 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "iced_style 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "iced_native 0.4.0 (git+https://github.com/hecrj/iced?branch=master)",
+ "iced_style 0.3.0 (git+https://github.com/hecrj/iced?branch=master)",
  "lyon",
  "raw-window-handle",
  "thiserror",
@@ -1301,11 +1304,10 @@ dependencies = [
 [[package]]
 name = "iced_native"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35030736d160e88b79edddee7ab664a2f3ac6b4046608e298b4c853030e3cc06"
+source = "git+https://github.com/hecrj/iced?branch=master#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
 dependencies = [
- "iced_core 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "iced_futures 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "iced_core 0.4.0 (git+https://github.com/hecrj/iced?branch=master)",
+ "iced_futures 0.3.0 (git+https://github.com/hecrj/iced?branch=master)",
  "num-traits",
  "twox-hash",
  "unicode-segmentation",
@@ -1330,6 +1332,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca93066a80759bfb31f2900d45ca4cf7500b88611607da5e380143badfcd7837"
 dependencies = [
  "iced_core 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "iced_style"
+version = "0.3.0"
+source = "git+https://github.com/hecrj/iced?branch=master#4994d34abab3222f9a8fd7a9a3e63f969ca97ffc"
+dependencies = [
+ "iced_core 0.4.0 (git+https://github.com/hecrj/iced?branch=master)",
 ]
 
 [[package]]

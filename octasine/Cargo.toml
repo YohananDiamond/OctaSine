@@ -59,8 +59,8 @@ version = "0.3"
 optional = true
 
 [dependencies.iced_audio]
-git = "https://github.com/BillyDM/iced_audio.git"
-branch = "main"
+git = "https://github.com/iced-rs/iced_audio.git"
+branch = "iced_git"
 optional = true
 
 [dependencies.palette]
