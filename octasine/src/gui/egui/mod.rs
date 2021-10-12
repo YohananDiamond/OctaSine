@@ -30,7 +30,7 @@ pub fn build<H: GuiSyncHandle>(ctx: &CtxRef, _queue: &mut Queue, _sync_handle: &
 pub fn update<H: GuiSyncHandle>(egui_ctx: &CtxRef, _queue: &mut Queue, sync_handle: &mut H){
     Window::new("WAVE")
 	.fixed_pos(&(0.0, 0.0))
-	// .fixed_size(&(100.0, 100.0))
+	.fixed_size(&(500.0, 400.0))
 	.resizable(false)
 	.collapsible(false)
 	.title_bar(false)
@@ -47,6 +47,7 @@ pub fn update<H: GuiSyncHandle>(egui_ctx: &CtxRef, _queue: &mut Queue, sync_hand
 		    }
 		});
 
+		titled_drag_value(sync_handle, ui, "VOLUME");
 		titled_drag_value(sync_handle, ui, "VOLUME");
 	    });
 	});
