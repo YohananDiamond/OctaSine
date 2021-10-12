@@ -1,5 +1,6 @@
+use cfg_if::cfg_if;
+
 use baseview::{Size, WindowOpenOptions, WindowScalePolicy};
-use iced_baseview::{IcedWindow, Settings};
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use serde::{Deserialize, Serialize};
 use vst::editor::Editor;
@@ -7,18 +8,24 @@ use vst::editor::Editor;
 use super::GuiSyncHandle;
 use crate::constants::PLUGIN_NAME;
 
-mod iced;
+cfg_if! {
+    if #[cfg(feature = "iced_gui")] {
+        mod iced;
 
-use iced::OctaSineIcedApplication;
+        use iced::OctaSineIcedApplication;
+
+        pub struct GuiSettings {
+            pub theme: iced::style::Theme,
+        }
+    } else {
+        mod egui;
+    }
+}
 
 pub const GUI_WIDTH: usize = 12 * 66;
 pub const GUI_HEIGHT: usize = 12 * 61;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-
-pub struct GuiSettings {
-    pub theme: iced::style::Theme,
-}
 
 pub struct Gui<H: GuiSyncHandle> {
     sync_state: H,
@@ -32,29 +39,56 @@ impl<H: GuiSyncHandle> Gui<H> {
             opened: false,
         }
     }
+    
+    cfg_if!{
+        if #[cfg(feature = "iced_gui")] {
+            fn get_iced_baseview_settings(sync_handle: H) -> iced_baseview::Settings<H> {
+                iced_baseview::Settings {
+                    window: WindowOpenOptions {
+                        size: Size::new(GUI_WIDTH as f64, GUI_HEIGHT as f64),
+                        scale: WindowScalePolicy::SystemScaleFactor,
+                        title: PLUGIN_NAME.to_string(),
+                    },
+                    flags: sync_handle,
+                }
+            }
 
-    fn get_iced_baseview_settings(sync_handle: H) -> Settings<H> {
-        Settings {
-            window: WindowOpenOptions {
-                size: Size::new(GUI_WIDTH as f64, GUI_HEIGHT as f64),
-                scale: WindowScalePolicy::SystemScaleFactor,
-                title: PLUGIN_NAME.to_string(),
-            },
-            flags: sync_handle,
+            pub fn open_parented(parent: ParentWindow, sync_handle: H) {
+                iced_baseview::IcedWindow::<OctaSineIcedApplication<_>>::open_parented(
+                    &parent,
+                    Self::get_iced_baseview_settings(sync_handle),
+                );
+            }
+
+            pub fn open_blocking(sync_handle: H) {
+                let settings = Self::get_iced_baseview_settings(sync_handle);
+
+                iced_baseview::IcedWindow::<OctaSineIcedApplication<_>>::open_blocking(settings);
+            }
+        } else {
+            fn get_egui_baseview_settings() -> egui_baseview::Settings {
+                egui_baseview::Settings {
+                    window: WindowOpenOptions {
+                        size: Size::new(GUI_WIDTH as f64, GUI_HEIGHT as f64),
+                        scale: WindowScalePolicy::SystemScaleFactor,
+                        title: PLUGIN_NAME.to_string(),
+                    },
+                    render_settings: Default::default(),
+                }
+            }
+
+            pub fn open_parented(parent: ParentWindow, sync_handle: H) {
+                let settings = Self::get_egui_baseview_settings();
+
+                egui_baseview::EguiWindow::open_parented(&parent, settings, sync_handle, egui::build, egui::update);
+            }
+
+            pub fn open_blocking(sync_handle: H) {
+                let settings = Self::get_egui_baseview_settings();
+
+                egui_baseview::EguiWindow::open_blocking(settings, sync_handle, egui::build, egui::update);
+            }
         }
-    }
-
-    pub fn open_parented(parent: ParentWindow, sync_handle: H) {
-        IcedWindow::<OctaSineIcedApplication<_>>::open_parented(
-            &parent,
-            Self::get_iced_baseview_settings(sync_handle),
-        );
-    }
-
-    pub fn open_blocking(sync_handle: H) {
-        let settings = Self::get_iced_baseview_settings(sync_handle);
-
-        IcedWindow::<OctaSineIcedApplication<_>>::open_blocking(settings);
     }
 }
 

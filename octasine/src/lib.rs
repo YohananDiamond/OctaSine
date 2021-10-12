@@ -7,7 +7,7 @@ pub mod preset_bank;
 pub mod settings;
 pub mod voices;
 
-#[cfg(feature = "gui")]
+#[cfg(any(feature = "iced_gui", feature = "egui_gui"))]
 pub mod gui;
 
 use std::sync::Arc;
@@ -323,7 +323,7 @@ impl vst::plugin::PluginParameters for SyncState {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "gui")] {
+    if #[cfg(any(feature = "iced_gui", feature = "egui_gui"))] {
         /// Trait passed to GUI code for encapsulation
         pub trait GuiSyncHandle: Clone + Send + Sync + 'static {
             fn set_parameter(&self, index: usize, value: f64);
@@ -333,6 +333,7 @@ cfg_if::cfg_if! {
             fn set_preset_index(&self, index: usize);
             fn get_changed_parameters(&self) -> Option<[Option<f64>; MAX_NUM_PARAMETERS]>;
             fn have_presets_changed(&self) -> bool;
+            #[cfg(feature = "iced_gui")]
             fn get_gui_settings(&self) -> gui::GuiSettings;
         }
 
@@ -371,6 +372,7 @@ cfg_if::cfg_if! {
             fn have_presets_changed(&self) -> bool {
                 self.presets.have_presets_changed()
             }
+            #[cfg(feature = "iced_gui")]
             fn get_gui_settings(&self) -> gui::GuiSettings {
                 self.settings.gui.clone()
             }

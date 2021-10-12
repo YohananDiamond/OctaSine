@@ -7,9 +7,10 @@ edition = "2018"
 
 [features]
 simd = ["sleef-sys"]
-gui_glow = ["gui", "iced_glow", "raw-gl-context", "iced_baseview/glow", "iced_baseview/glow_canvas"]
-gui_wgpu = ["gui", "iced_wgpu", "iced_baseview/wgpu", "iced_baseview/canvas"]
-gui = ["baseview", "iced_baseview", "iced_style", "iced_audio", "palette", "raw-window-handle"]
+egui_gui = ["baseview", "raw-window-handle", "egui-baseview", "egui"]
+iced_gui = ["baseview", "iced_baseview", "iced_style", "iced_audio", "palette", "raw-window-handle"]
+iced_gui_glow = ["iced_gui", "iced_glow", "raw-gl-context", "iced_baseview/glow", "iced_baseview/glow_canvas"]
+iced_gui_wgpu = ["iced_gui", "iced_wgpu", "iced_baseview/wgpu", "iced_baseview/canvas"]
 
 [lib]
 name = "octasine"
@@ -44,6 +45,7 @@ vst = "0.2"
 
 # GUI
 
+egui = { version = "0.13", optional = true }
 iced_glow = { version = "0.2", optional = true }
 iced_wgpu = { version = "0.4", optional = true }
 raw-gl-context = { version = "0.1", optional = true }
@@ -64,6 +66,11 @@ git = "https://github.com/BillyDM/iced_baseview.git"
 rev = "3cd6214"
 default-features = false
 features = ["palette"]
+optional = true
+
+[dependencies.egui-baseview]
+git = "https://github.com/BillyDM/egui-baseview.git"
+branch = "main"
 optional = true
 
 [dependencies.iced_style]

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub schema_version: usize,
-    #[cfg(feature = "gui")]
+    #[cfg(feature = "iced_gui")]
     pub gui: super::gui::GuiSettings,
 }
 
@@ -13,6 +13,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             schema_version: 1,
+            #[cfg(feature = "iced_gui")]
             gui: Default::default(),
         }
     }

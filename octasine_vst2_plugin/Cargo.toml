@@ -10,10 +10,11 @@ name = "octasine"
 crate-type = ["cdylib"]
 
 [features]
-default = ["wgpu"]
+default = ["egui"]
 simd = ["octasine/simd"]
-glow = ["octasine/gui_glow"]
-wgpu = ["octasine/gui_wgpu"]
+glow = ["octasine/iced_gui_glow"]
+wgpu = ["octasine/iced_gui_wgpu"]
+egui = ["octasine/egui_gui"]
 
 [dependencies]
 octasine = { path = "../octasine", default-features = false }

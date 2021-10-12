@@ -6,8 +6,9 @@ license = "AGPL-3.0"
 edition = "2018"
 
 [features]
-wgpu = ["octasine/gui_wgpu"]
-glow = ["octasine/gui_glow"]
+wgpu = ["octasine/iced_gui_wgpu"]
+glow = ["octasine/iced_gui_glow"]
+egui = ["octasine/egui_gui"]
 
 [dependencies]
 octasine = { path = "../octasine", default-features = false }
