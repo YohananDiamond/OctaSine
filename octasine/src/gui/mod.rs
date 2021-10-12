@@ -7,9 +7,9 @@ use vst::editor::Editor;
 use super::GuiSyncHandle;
 use crate::constants::PLUGIN_NAME;
 
-mod interface;
+mod iced;
 
-use interface::OctaSineIcedApplication;
+use iced::OctaSineIcedApplication;
 
 pub const GUI_WIDTH: usize = 12 * 66;
 pub const GUI_HEIGHT: usize = 12 * 61;
@@ -17,7 +17,7 @@ pub const GUI_HEIGHT: usize = 12 * 61;
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 
 pub struct GuiSettings {
-    pub theme: interface::style::Theme,
+    pub theme: iced::style::Theme,
 }
 
 pub struct Gui<H: GuiSyncHandle> {
