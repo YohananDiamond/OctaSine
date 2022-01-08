@@ -364,6 +364,16 @@ mod gen {
                                 ),
                             ));
 
+                    let phase_offset =
+                        operator
+                            .phase
+                            .get_value_with_lfo_addition(lfo_values.get(
+                                LfoTargetParameter::Operator(
+                                    operator_index,
+                                    LfoTargetOperatorParameter::Phase,
+                                ),
+                            ));
+
                     let frequency =
                         voice_base_frequency * frequency_ratio * frequency_free * frequency_fine;
 
@@ -372,11 +382,13 @@ mod gen {
 
                     let new_phase = last_phase + phase_addition;
 
-                    voice_data.operator_phases[operator_index][sample_index_offset] = new_phase;
-                    voice_data.operator_phases[operator_index][sample_index_offset + 1] = new_phase;
-
                     // Save phase
                     voice.operators[operator_index].last_phase.0 = new_phase;
+
+                    let new_phase_with_offset = new_phase + phase_offset;
+
+                    voice_data.operator_phases[operator_index][sample_index_offset] = new_phase_with_offset;
+                    voice_data.operator_phases[operator_index][sample_index_offset + 1] = new_phase_with_offset;
                 }
 
                 // Envelope

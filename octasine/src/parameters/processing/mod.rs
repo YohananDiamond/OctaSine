@@ -202,12 +202,16 @@ impl ProcessingParameters {
             84 => self.lfos[3].mode.set_from_sync(value),
             85 => self.lfos[3].shape.set_from_sync(value),
             86 => self.lfos[3].amount.set_from_sync(value),
+            87 => self.operators[0].phase.set_from_sync(value),
+            88 => self.operators[1].phase.set_from_sync(value),
+            89 => self.operators[2].phase.set_from_sync(value),
+            90 => self.operators[3].phase.set_from_sync(value),
             _ => (),
         }
     }
 
-    pub fn len(&self) -> usize {
-        87
+    pub fn len() -> usize {
+        91
     }
 
     pub fn advance_one_sample(&mut self) {
@@ -225,8 +229,9 @@ impl ProcessingParameters {
 }
 
 pub struct ProcessingParameterOperator {
-    pub volume: OperatorVolumeProcessingParameter,
     pub wave_type: SimpleProcessingParameter<OperatorWaveTypeValue>,
+    pub phase: InterpolatableProcessingParameter<OperatorPhaseValue>,
+    pub volume: OperatorVolumeProcessingParameter,
     pub panning: OperatorPanningProcessingParameter,
     pub additive_factor: InterpolatableProcessingParameter<OperatorAdditiveValue>,
     pub output_operator: Option<OperatorModulationTargetProcessingParameter>,
@@ -241,8 +246,9 @@ pub struct ProcessingParameterOperator {
 impl ProcessingParameterOperator {
     pub fn new(operator_index: usize) -> Self {
         Self {
-            volume: OperatorVolumeProcessingParameter::new(operator_index),
             wave_type: Default::default(),
+            phase: Default::default(),
+            volume: OperatorVolumeProcessingParameter::new(operator_index),
             panning: OperatorPanningProcessingParameter::default(),
             additive_factor: Default::default(),
             output_operator: OperatorModulationTargetProcessingParameter::opt_new(operator_index),
@@ -256,8 +262,9 @@ impl ProcessingParameterOperator {
     }
 
     pub fn advance_one_sample(&mut self) {
-        self.volume.advance_one_sample();
         self.wave_type.advance_one_sample();
+        self.phase.advance_one_sample();
+        self.volume.advance_one_sample();
         self.panning.advance_one_sample();
         self.additive_factor.advance_one_sample();
         if let Some(ref mut output_operator) = self.output_operator {

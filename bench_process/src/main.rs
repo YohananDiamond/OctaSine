@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use colored::*;
+use octasine::parameters::processing::ProcessingParameters;
 use sha2::{Digest, Sha256};
 use vst::event::MidiEvent;
 use vst::plugin::PluginParameters;
@@ -151,7 +152,7 @@ fn benchmark<A: AudioGen + Simd>(name: &str, expected_hash: &str) -> (bool, f32)
             octasine.enqueue_midi_events(key_off_events.iter().copied());
         }
 
-        for j in 0..87 {
+        for j in 0..ProcessingParameters::len() as i32 {
             if envelope_duration_parameters.contains(&j) || wave_type_parameters.contains(&j) {
                 continue;
             }

@@ -6,7 +6,7 @@ use iced_baseview::{
 use crate::parameters::values::{
     OperatorAdditiveValue, OperatorFeedbackValue, OperatorFrequencyFineValue,
     OperatorFrequencyFreeValue, OperatorFrequencyRatioValue, OperatorModulationIndexValue,
-    OperatorPanningValue, OperatorVolumeValue, OperatorWaveTypeValue,
+    OperatorPanningValue, OperatorVolumeValue, OperatorWaveTypeValue, OperatorPhaseValue,
 };
 use crate::GuiSyncHandle;
 
@@ -28,6 +28,7 @@ pub struct OperatorWidgets {
     pub frequency_free: OctaSineKnob<OperatorFrequencyFreeValue>,
     pub frequency_fine: OctaSineKnob<OperatorFrequencyFineValue>,
     pub additive: Option<OctaSineKnob<OperatorAdditiveValue>>,
+    pub phase: OctaSineKnob<OperatorPhaseValue>,
     pub envelope: Envelope,
     pub zoom_in: button::State,
     pub zoom_out: button::State,
@@ -37,12 +38,12 @@ pub struct OperatorWidgets {
 
 impl OperatorWidgets {
     pub fn new<H: GuiSyncHandle>(sync_handle: &H, operator_index: usize, style: Theme) -> Self {
-        let (volume, panning, wave, additive, mod_index, feedback, ratio, free, fine) =
+        let (volume, panning, wave, additive, mod_index, feedback, ratio, free, fine, phase) =
             match operator_index {
-                0 => (2, 3, 4, 0, 5, 6, 7, 8, 9),
-                1 => (15, 16, 17, 18, 19, 20, 21, 22, 23),
-                2 => (29, 30, 31, 32, 34, 35, 36, 37, 38),
-                3 => (44, 45, 46, 47, 49, 50, 51, 52, 53),
+                0 => (2, 3, 4, 0, 5, 6, 7, 8, 9, 87),
+                1 => (15, 16, 17, 18, 19, 20, 21, 22, 23, 88),
+                2 => (29, 30, 31, 32, 34, 35, 36, 37, 38, 89),
+                3 => (44, 45, 46, 47, 49, 50, 51, 52, 53, 90),
                 _ => unreachable!(),
             };
 
@@ -64,6 +65,7 @@ impl OperatorWidgets {
             frequency_free: knob::operator_frequency_free(sync_handle, free, style),
             frequency_fine: knob::operator_frequency_fine(sync_handle, fine, style),
             additive: additive_knob,
+            phase: knob::operator_phase(sync_handle, phase, style),
             envelope: Envelope::new(sync_handle, operator_index, style),
             zoom_in: button::State::default(),
             zoom_out: button::State::default(),
@@ -102,9 +104,17 @@ impl OperatorWidgets {
                     .height(Length::Units(LINE_HEIGHT * 6))
                     .align_x(Horizontal::Center)
                     .align_y(Vertical::Center),
-            )
-            // .push(Space::with_width(Length::Units(LINE_HEIGHT)))
+            );
+        
+        row = row
             .push(self.wave_type.view())
+            .push(self.phase.view())
+            .push(
+                Container::new(Rule::vertical(LINE_HEIGHT)).height(Length::Units(LINE_HEIGHT * 6)),
+            );
+
+        row = row
+            // .push(Space::with_width(Length::Units(LINE_HEIGHT)))
             .push(self.volume.view())
             .push(self.panning.view());
 

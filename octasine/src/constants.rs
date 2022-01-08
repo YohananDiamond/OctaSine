@@ -41,9 +41,10 @@ pub const ENVELOPE_CURVE_TAKEOVER: f64 = ENVELOPE_MIN_DURATION * 10.0;
 pub const ENVELOPE_CURVE_TAKEOVER_RECIP: f64 = 1.0 / ENVELOPE_CURVE_TAKEOVER;
 
 // When adjusting this, remember to also modify get_lfo_target_parameters
-pub const LFO_TARGET_CONTEXT_STEPS: [LfoTargetParameter; 45] = [
+pub const LFO_TARGET_CONTEXT_STEPS: [LfoTargetParameter; 49] = [
     LfoTargetParameter::Master(LfoTargetMasterParameter::Volume),
     LfoTargetParameter::Master(LfoTargetMasterParameter::Frequency),
+    LfoTargetParameter::Operator(0, LfoTargetOperatorParameter::Phase),
     LfoTargetParameter::Operator(0, LfoTargetOperatorParameter::Volume),
     LfoTargetParameter::Operator(0, LfoTargetOperatorParameter::Panning),
     LfoTargetParameter::Operator(0, LfoTargetOperatorParameter::ModulationIndex),
@@ -51,6 +52,7 @@ pub const LFO_TARGET_CONTEXT_STEPS: [LfoTargetParameter; 45] = [
     LfoTargetParameter::Operator(0, LfoTargetOperatorParameter::FrequencyRatio),
     LfoTargetParameter::Operator(0, LfoTargetOperatorParameter::FrequencyFree),
     LfoTargetParameter::Operator(0, LfoTargetOperatorParameter::FrequencyFine),
+    LfoTargetParameter::Operator(1, LfoTargetOperatorParameter::Phase),
     LfoTargetParameter::Operator(1, LfoTargetOperatorParameter::Volume),
     LfoTargetParameter::Operator(1, LfoTargetOperatorParameter::Panning),
     LfoTargetParameter::Operator(1, LfoTargetOperatorParameter::Additive),
@@ -59,6 +61,7 @@ pub const LFO_TARGET_CONTEXT_STEPS: [LfoTargetParameter; 45] = [
     LfoTargetParameter::Operator(1, LfoTargetOperatorParameter::FrequencyRatio),
     LfoTargetParameter::Operator(1, LfoTargetOperatorParameter::FrequencyFree),
     LfoTargetParameter::Operator(1, LfoTargetOperatorParameter::FrequencyFine),
+    LfoTargetParameter::Operator(2, LfoTargetOperatorParameter::Phase),
     LfoTargetParameter::Operator(2, LfoTargetOperatorParameter::Volume),
     LfoTargetParameter::Operator(2, LfoTargetOperatorParameter::Panning),
     LfoTargetParameter::Operator(2, LfoTargetOperatorParameter::Additive),
@@ -67,6 +70,7 @@ pub const LFO_TARGET_CONTEXT_STEPS: [LfoTargetParameter; 45] = [
     LfoTargetParameter::Operator(2, LfoTargetOperatorParameter::FrequencyRatio),
     LfoTargetParameter::Operator(2, LfoTargetOperatorParameter::FrequencyFree),
     LfoTargetParameter::Operator(2, LfoTargetOperatorParameter::FrequencyFine),
+    LfoTargetParameter::Operator(3, LfoTargetOperatorParameter::Phase),
     LfoTargetParameter::Operator(3, LfoTargetOperatorParameter::Volume),
     LfoTargetParameter::Operator(3, LfoTargetOperatorParameter::Panning),
     LfoTargetParameter::Operator(3, LfoTargetOperatorParameter::Additive),
@@ -126,6 +130,7 @@ pub const DEFAULT_OPERATOR_FREQUENCY_FINE: f64 = 1.0;
 pub const DEFAULT_OPERATOR_FEEDBACK: f64 = 0.0;
 pub const DEFAULT_OPERATOR_MODULATION_INDEX: f64 = 1.0;
 pub const DEFAULT_OPERATOR_WAVE_TYPE: WaveType = WaveType::Sine;
+pub const DEFAULT_OPERATOR_PHASE: f64 = 0.0;
 
 pub const DEFAULT_OPERATOR_3_MOD_TARGET: usize = 1;
 pub const DEFAULT_OPERATOR_4_MOD_TARGET: usize = 2;

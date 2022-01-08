@@ -1020,3 +1020,35 @@ impl ParameterValue for LfoAmountValue {
         None // FIXME
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct OperatorPhaseValue(f64);
+
+impl Default for OperatorPhaseValue {
+    fn default() -> Self {
+        Self(DEFAULT_OPERATOR_PHASE)
+    }
+}
+
+impl ParameterValue for OperatorPhaseValue {
+    type Value = f64;
+
+    fn from_processing(value: Self::Value) -> Self {
+        Self(value)
+    }
+    fn get(self) -> Self::Value {
+        self.0
+    }
+    fn from_sync(sync: f64) -> Self {
+        Self(sync)
+    }
+    fn to_sync(self) -> f64 {
+        self.0
+    }
+    fn format(self) -> String {
+        format!("{:.04}", self.0)
+    }
+    fn format_sync(value: f64) -> String {
+        Self::from_sync(value).format()
+    }
+}

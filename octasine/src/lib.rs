@@ -417,7 +417,8 @@ cfg_if::cfg_if! {
 }
 
 pub fn built_in_preset_bank() -> PresetBank {
-    PresetBank::new_from_bytes(include_bytes!("../presets/preset-bank.json"))
+    // PresetBank::new_from_bytes(include_bytes!("../presets/preset-bank.json"))
+    PresetBank::default()
 }
 
 #[macro_export]

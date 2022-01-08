@@ -214,6 +214,10 @@ impl<H: GuiSyncHandle> OctaSineIcedApplication<H> {
             84 => self.lfo_4.mode.set_value(v),
             85 => self.lfo_4.shape.set_value(v),
             86 => self.lfo_4.amount.set_value(v),
+            87 => self.operator_1.phase.set_value(v),
+            88 => self.operator_2.phase.set_value(v),
+            89 => self.operator_3.phase.set_value(v),
+            90 => self.operator_4.phase.set_value(v),
             _ => (),
         }
     }

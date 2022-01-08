@@ -81,6 +81,13 @@ pub fn create_parameters() -> Vec<SyncParameter> {
         ])
     }
 
+    parameters.extend(vec![
+        operator_phase(0),
+        operator_phase(1),
+        operator_phase(2),
+        operator_phase(3),
+    ]);
+
     parameters
 }
 
@@ -110,6 +117,13 @@ fn operator_additive(index: usize) -> SyncParameter {
     SyncParameter::new(
         &format!("Op. {} additive", index + 1),
         OperatorAdditiveValue::default(),
+    )
+}
+
+fn operator_phase(index: usize) -> SyncParameter {
+    SyncParameter::new(
+        &format!("Op. {} phase", index + 1),
+        OperatorPhaseValue::default(),
     )
 }
 

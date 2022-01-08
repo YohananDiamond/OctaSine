@@ -8,7 +8,7 @@ use crate::parameters::values::{
     LfoAmountValue, LfoFrequencyFreeValue, LfoFrequencyRatioValue, LfoShapeValue,
     MasterFrequencyValue, MasterVolumeValue, OperatorAdditiveValue, OperatorFeedbackValue,
     OperatorFrequencyFineValue, OperatorFrequencyFreeValue, OperatorFrequencyRatioValue,
-    OperatorModulationIndexValue, OperatorPanningValue, OperatorVolumeValue, ParameterValue,
+    OperatorModulationIndexValue, OperatorPanningValue, OperatorVolumeValue, ParameterValue, OperatorPhaseValue,
 };
 use crate::GuiSyncHandle;
 
@@ -92,6 +92,20 @@ pub fn operator_additive<H: GuiSyncHandle>(
         sync_handle,
         parameter_index,
         "ADDITIVE",
+        TickMarkType::MinMax,
+        style,
+    )
+}
+
+pub fn operator_phase<H: GuiSyncHandle>(
+    sync_handle: &H,
+    parameter_index: usize,
+    style: Theme,
+) -> OctaSineKnob<OperatorPhaseValue> {
+    OctaSineKnob::new(
+        sync_handle,
+        parameter_index,
+        "PHASE",
         TickMarkType::MinMax,
         style,
     )
